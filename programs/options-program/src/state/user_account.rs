@@ -5,7 +5,7 @@ pub const USR_ACC_SEED: &str = "account";
 #[account]
 #[derive(InitSpace, PartialEq, Eq)]
 pub struct UserAccount {
-    pub balance: u64,
+    // pub balance: u64,
     pub options: [OptionOrder; 32]
 }
 

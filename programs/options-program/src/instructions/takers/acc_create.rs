@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use super::super::state::user_account::*;
+use crate::state::user_account::*;
 
 #[derive(Accounts)]
 pub struct AccountCreate<'info> {

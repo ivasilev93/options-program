@@ -1,3 +1,1 @@
-use anchor_lang::prelude::Pubkey;
-
-pub const ADMIN_KEY: &str = "admin_key"; //TODO
+pub const ADMIN_KEY: &str = "FARXLJJbSwZyELTe8TXihES7o26B2d5NKkvCkETP7Gnz"; //local pub key

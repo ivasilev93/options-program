@@ -4,4 +4,12 @@ use anchor_lang::prelude::*;
 pub enum CustomError {
     #[msg("Unauthorized")]
     Unauthorized,
+    #[msg("SlippageExceeded")]
+    SlippageExceeded,
+    #[msg("InvalidAmount")]
+    InvalidAmount,
+    #[msg("DustAmount")]
+    DustAmount,
+    #[msg("Overflow")]
+    Overflow,
 }

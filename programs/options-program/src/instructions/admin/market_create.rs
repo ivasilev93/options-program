@@ -9,9 +9,9 @@ use crate::constants::ADMIN_KEY;
 
 #[derive(Accounts)]
 #[instruction(
-    name: String,
     fee: u64,
-    ix: u64
+    name: String,
+    ix: u16
 )]
 pub struct CreateMarket<'info> {
     #[account(
@@ -69,13 +69,17 @@ pub struct CreateMarket<'info> {
 }
 
 impl CreateMarket<'_> {
-    pub fn handle(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u64) -> Result<()> {
+    pub fn handle(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16) -> Result<()> {
         let market = &mut ctx.accounts.market;
+        let market_acc_info = market.to_account_info();
 
         market.id = ix;
         market.name = name;
         market.fee = fee;
         market.bump = ctx.bumps.market;
+
+        msg!("Market seeds: {:?} {:?}", MARKET_SEED.as_bytes(), ix.to_le_bytes());
+        msg!("Market address: {} ", market_acc_info.key());
 
         Ok(())
     }

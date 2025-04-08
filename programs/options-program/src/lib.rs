@@ -6,6 +6,7 @@ mod constants;
 mod instructions;
 
 use instructions::takers::acc_create::*;
+use instructions::makers::market_deposit::*;
 use instructions::admin::market_create::*;
 
 declare_id!("Be2AgTUf5uVfdHaSXPpzifVkmwfkgRwtLToVywevfvrS");
@@ -16,7 +17,7 @@ pub mod options_program {
 
     /* Admin */
 
-    pub fn create_market(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u64) -> Result<()> {
+    pub fn create_market(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16) -> Result<()> {
         CreateMarket::handle(ctx, fee, name, ix)
     }
     //Exercise option ? by cron
@@ -32,7 +33,10 @@ pub mod options_program {
 
     //LPs
 
-    //Deposit into market(pool)
+    pub fn market_deposit(ctx: Context<MarketDeposit>, params: DepositIx) -> Result<()> {
+        MarketDeposit::handle(ctx, params.amount, params.min_amount_out, params.ix)
+    }
+    
     //Withdraw from market - for makers
 
    

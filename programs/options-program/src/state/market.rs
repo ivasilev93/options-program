@@ -1,6 +1,8 @@
+use core::time;
+
 use anchor_lang::{prelude::*, solana_program::native_token::LAMPORTS_PER_SOL};
 
-use crate::errors::CustomError;
+use crate::{common::OptionType, errors::CustomError};
 
 pub const MARKET_SEED: &str = "market";
 pub const MARKET_VAULT_SEED: &str = "market_vault";
@@ -13,11 +15,13 @@ pub struct Market {
     pub id: u16,
     #[max_len(32)]
     pub name: String,        
-    pub fee: u64,
+    pub fee_bps: u64, // 1 bps = 0.01%
     pub bump: u8,
-    pub reserve_supply: u64,
+    pub reserve_supply: u64,    
+    pub committed_reserve: u64,  
     pub premiums: u64,
-    pub lp_minted: u64
+    pub lp_minted: u64,
+    pub price_feed: Pubkey
 }
 
 pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Market) -> Result<u64> {
@@ -42,6 +46,7 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
         println!("lp_tokens {:?}", lp_tokens);
 
         let lp_tokens_u64 = lp_tokens.try_into().map_err(|_| CustomError::Overflow)?;
+
         require!(lp_tokens_u64 >= 1, CustomError::DustAmount);
         lp_tokens_u64
     };
@@ -51,8 +56,53 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
     Ok(lp_tokens_to_mint)
 }
 
+pub fn calculate_premium(
+    strike_price_usd: u64,
+    spot_price_usd: u64,
+    time_to_expity: f64,
+    volatility: f64,
+    option_type: &OptionType
+) -> Result<u64> {
+    // Convert to f64 for calculations, adjusting for scale
+    let s = spot_price_usd as f64 / 1_000_000.0;
+    let k = strike_price_usd as f64 / 1_000_000.0;
+
+    // Assumed risk-free rate of 0 - for simplicity
+
+    let d1 = (s / k).ln() + (volatility * volatility / 2.0) * time_to_expity;
+    let d1 = d1 / (volatility * time_to_expity.sqrt());
+    let d2 = d1 - volatility * time_to_expity.sqrt();
+
+    // Approximate N(x) using a simple polynomial (for demo purposes)
+    // In production, use a lookup table or more precise approximation
+    let n_d1 = approximate_normal_cdf(d1)?;
+    let n_d2 = approximate_normal_cdf(d2)?;
+
+    let premium = match option_type {
+        OptionType::CALL => s * n_d1 - k * n_d2, 
+        OptionType::PUT => {
+            let n_neg_d2 = approximate_normal_cdf(-d2)?; // N(-d2)
+            let n_neg_d1 = approximate_normal_cdf(-d1)?; // N(-d1)
+            k * n_neg_d2 - s * n_neg_d1
+        }
+    };
+
+    // Scale back to u64 (10^6)
+    let premium_scaled = (premium * 1_000_000.0) as u64;
+    Ok(premium_scaled)
+}
+
+fn approximate_normal_cdf(x: f64) -> Result<f64> {
+     // Simple approximation for N(x) (for demo)
+    // Replace with a lookup table or better polynomial in production
+    let t = 1.0 / (1.0 + 0.2316419 * x.abs());
+    let d = 0.3989423 * (-x * x / 2.0).exp();
+    let p = 1.0 - d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    Ok(if x >= 0.0 { p } else { 1.0 - p })
+}
+
 #[cfg(test)]
-mod market_tests {
+mod market_lp_shares_tests {
     use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
     use super::*;
@@ -60,12 +110,14 @@ mod market_tests {
     fn mock_market() -> Market {
         Market {
             id: 1,
-            fee: 2,
+            fee_bps: 2,
             lp_minted: 0,
             premiums: 0,
+            committed_reserve: 0,
             reserve_supply: 0,
             name: String::from("1 wSOL market"),
-            bump: 120
+            bump: 120,
+            price_feed: Pubkey::new_unique()
         }
     }
 

@@ -4,6 +4,7 @@ mod state;
 mod errors;
 mod constants;
 mod instructions;
+mod common;
 
 use instructions::takers::acc_create::*;
 use instructions::makers::market_deposit::*;
@@ -17,8 +18,8 @@ pub mod options_program {
 
     /* Admin */
 
-    pub fn create_market(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16) -> Result<()> {
-        CreateMarket::handle(ctx, fee, name, ix)
+    pub fn create_market(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16, price_feed: String) -> Result<()> {
+        CreateMarket::handle(ctx, fee, name, ix, price_feed)
     }
     //Exercise option ? by cron
 

@@ -11,7 +11,8 @@ use crate::constants::ADMIN_KEY;
 #[instruction(
     fee: u64,
     name: String,
-    ix: u16
+    ix: u16,
+    price_feed: String
 )]
 pub struct CreateMarket<'info> {
     #[account(
@@ -69,14 +70,16 @@ pub struct CreateMarket<'info> {
 }
 
 impl CreateMarket<'_> {
-    pub fn handle(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16) -> Result<()> {
+    pub fn handle(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16, price_feed: String) -> Result<()> {
         let market = &mut ctx.accounts.market;
         let market_acc_info = market.to_account_info();
 
+        let price_feed_pubkey = Pubkey::from_str(&price_feed).unwrap();
         market.id = ix;
         market.name = name;
-        market.fee = fee;
+        market.fee_bps = fee;
         market.bump = ctx.bumps.market;
+        market.price_feed = price_feed_pubkey;
 
         msg!("Market seeds: {:?} {:?}", MARKET_SEED.as_bytes(), ix.to_le_bytes());
         msg!("Market address: {} ", market_acc_info.key());

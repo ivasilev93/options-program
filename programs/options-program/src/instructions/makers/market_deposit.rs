@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use crate::errors::CustomError;
 use crate::state::market::*;
 use crate::state::event::*;
 use anchor_spl::associated_token::AssociatedToken;

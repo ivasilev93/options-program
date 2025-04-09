@@ -100,7 +100,8 @@ describe("options-program", async () => {
       const createMarketSignature = await program.methods.createMarket(
         new anchor.BN(2),
         'wSOL market',
-        marketIx)
+        marketIx,
+        'PRICE FEED') //TODO: add proper price feed
         .accountsStrict({
           market: marketPDA,
           marketVault: marketVaultPDA,
@@ -133,7 +134,8 @@ describe("options-program", async () => {
     const createMarketSignature = await program.methods.createMarket(
       new anchor.BN(2),
       'wSOL market',
-      Number(marketIx))
+      Number(marketIx),
+      'PRICE FEED') //TODO: add proper price feed)
       .accountsStrict({
         market: marketPDA,
         marketVault: marketVaultPDA,

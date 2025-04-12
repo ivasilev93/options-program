@@ -28,7 +28,6 @@ impl OptionOrder {
 impl UserAccount {
     pub fn get_available_slot(&self, market_ix: u16) -> Option<usize> {
         self.options.iter()
-        .position(|o| 
-            o.market_ix == market_ix && !o.is_initialized())
+        .position(|o| !o.is_initialized())
     }
 }

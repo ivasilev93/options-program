@@ -12,7 +12,8 @@ use crate::constants::ADMIN_KEY;
     fee: u64,
     name: String,
     ix: u16,
-    price_feed: String
+    price_feed: String,
+    volatility_bps: u32
 )]
 pub struct CreateMarket<'info> {
     #[account(
@@ -43,8 +44,7 @@ pub struct CreateMarket<'info> {
         payer = signer,
         seeds = [
             MARKET_SEED.as_bytes(),
-            ix.to_le_bytes().as_ref(),
-            // signer.key().as_ref()
+            ix.to_le_bytes().as_ref()
         ],
         bump,
         space = 8 + Market::INIT_SPACE
@@ -59,27 +59,44 @@ pub struct CreateMarket<'info> {
         token::token_program = token_program,
         seeds = [
             MARKET_VAULT_SEED.as_bytes(),
-            ix.to_le_bytes().as_ref(),
-            // signer.key().as_ref()
+            ix.to_le_bytes().as_ref()
         ],
         bump,
     )]
     pub market_vault: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        init,
+        payer = signer,
+        token::mint = asset_mint,
+        token::authority = protocol_fees_vault,
+        token::token_program = token_program,
+        seeds = [
+            PROTOCOL_FEES_VAULT_SEED.as_bytes(),
+            ix.to_le_bytes().as_ref()
+        ],
+        bump,
+    )]
+    pub protocol_fees_vault: InterfaceAccount<'info, TokenAccount>,
+
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>
 }
 
 impl CreateMarket<'_> {
-    pub fn handle(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16, price_feed: String) -> Result<()> {
+    pub fn handle(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16, price_feed: String, volatility_bps: u32) -> Result<()> {
         let market = &mut ctx.accounts.market;
+        let asset_mint = &mut ctx.accounts.asset_mint;
         let market_acc_info = market.to_account_info();
 
-        let price_feed_pubkey = Pubkey::from_str(&price_feed).unwrap();
+        // let price_feed_pubkey = Pubkey::from_str(&price_feed).unwrap();
         market.id = ix;
         market.name = name;
         market.fee_bps = fee;
         market.bump = ctx.bumps.market;
-        market.price_feed = price_feed_pubkey;
+        market.price_feed = price_feed;
+        market.asset_decimals = asset_mint.decimals;
+        market.volatility_bps = volatility_bps;
 
         msg!("Market seeds: {:?} {:?}", MARKET_SEED.as_bytes(), ix.to_le_bytes());
         msg!("Market address: {} ", market_acc_info.key());

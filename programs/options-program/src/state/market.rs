@@ -1,11 +1,11 @@
-use core::time;
 
-use anchor_lang::{prelude::*, solana_program::native_token::LAMPORTS_PER_SOL};
+use anchor_lang::prelude::*;
 
 use crate::{common::OptionType, errors::CustomError};
 
 pub const MARKET_SEED: &str = "market";
 pub const MARKET_VAULT_SEED: &str = "market_vault";
+pub const PROTOCOL_FEES_VAULT_SEED: &str = "protocol_fees_vault";
 pub const MARKET_LP_MINT_SEED: &str = "market_lp_mint";
 
 #[account]
@@ -15,13 +15,16 @@ pub struct Market {
     pub id: u16,
     #[max_len(32)]
     pub name: String,        
-    pub fee_bps: u64, // 1 bps = 0.01%
+    pub fee_bps: u64, // 50 bps = 0.5%
     pub bump: u8,
-    pub reserve_supply: u64,    
-    pub committed_reserve: u64,  
-    pub premiums: u64,
+    pub reserve_supply: u64,      // Token smallest units (e.g., 10^9 for SOL, 10^6 for JUP)
+    pub committed_reserve: u64,   // Token smallest units...
+    pub premiums: u64,            // Token smallest units 
     pub lp_minted: u64,
-    pub price_feed: Pubkey
+    pub volatility_bps: u32,      // 1bps=0.01%. Set by admin for demo simplicity. In prod, this would require different impl.
+    #[max_len(70)]
+    pub price_feed: String, // Pyth feed (TOKEN)/USD
+    pub asset_decimals: u8
 }
 
 pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Market) -> Result<u64> {
@@ -56,12 +59,20 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
     Ok(lp_tokens_to_mint)
 }
 
+///Calculates premium for a given market (asset), based on provided data 
+///  #Arguments
+///  * 'strike_price_usd' - strike price in usd scaled by 6 decimals (e.g. for $120 -> 120_000_000)
+///  * 'spot_price_usd' - spot price in usd scaled by 6 decimals 
+/// 
+/// #Returns
+/// The premium amount in token units (scaled by the asset decimals)
 pub fn calculate_premium(
     strike_price_usd: u64,
     spot_price_usd: u64,
     time_to_expity: f64,
     volatility: f64,
-    option_type: &OptionType
+    option_type: &OptionType,
+    asset_decimals: u8
 ) -> Result<u64> {
     // Convert to f64 for calculations, adjusting for scale
     let s = spot_price_usd as f64 / 1_000_000.0;
@@ -87,8 +98,12 @@ pub fn calculate_premium(
         }
     };
 
+    let usd_per_token = s;
+    let premium_in_tokens = premium / usd_per_token;
+    let token_scaling = 10_f64.powi(asset_decimals as i32);
+
     // Scale back to u64 (10^6)
-    let premium_scaled = (premium * 1_000_000.0) as u64;
+    let premium_scaled = (premium_in_tokens * token_scaling) as u64;
     Ok(premium_scaled)
 }
 
@@ -103,6 +118,8 @@ fn approximate_normal_cdf(x: f64) -> Result<f64> {
 
 #[cfg(test)]
 mod market_lp_shares_tests {
+    use std::str::FromStr;
+
     use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
     use super::*;
@@ -117,7 +134,9 @@ mod market_lp_shares_tests {
             reserve_supply: 0,
             name: String::from("1 wSOL market"),
             bump: 120,
-            price_feed: Pubkey::new_unique()
+            volatility_bps: 8000, //80%
+            price_feed: String::from("0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"), 
+            asset_decimals: 9
         }
     }
 

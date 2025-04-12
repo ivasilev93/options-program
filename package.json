@@ -6,8 +6,10 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.0",
+    "@pythnetwork/pyth-solana-receiver": "^0.10.1",
     "@solana/spl-token": "^0.4.13",
-    "@solana/web3.js": "^1.98.0"
+    "@solana/web3.js": "^1.98.0",
+    "rpc-websockets": "7.11.0"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",

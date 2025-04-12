@@ -5,9 +5,9 @@ use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{ self, Mint, TokenAccount, TokenInterface, TransferChecked, MintTo };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct DepositIx {
-    pub amount: u64,
-    pub min_amount_out: u64,
+pub struct DepositIx {    
+    pub amount: u64,            //Amount of tokens in smallest unit
+    pub min_amount_out: u64,    //Min amount of tokens out in smallest unit
     pub ix: u16,
 }
 
@@ -98,32 +98,34 @@ impl MarketDeposit<'_> {
             lp_tokens_before,
             market.lp_minted);
 
-        //Transfer from user to vaul
-        let cpi_accounts = TransferChecked {
-            from: ctx.accounts.user_asset_ata.to_account_info(),
-            to: ctx.accounts.market_vault.to_account_info(),
-            authority: ctx.accounts.signer.to_account_info(),
-            mint: ctx.accounts.asset_mint.to_account_info()
-        };
+        token_interface::transfer_checked(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                TransferChecked {
+                    from: ctx.accounts.user_asset_ata.to_account_info(),
+                    to: ctx.accounts.market_vault.to_account_info(),
+                    authority: ctx.accounts.signer.to_account_info(),
+                    mint: ctx.accounts.asset_mint.to_account_info()
+                }),
+                amount,
+                ctx.accounts.asset_mint.decimals)?;
 
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-        token_interface::transfer_checked(cpi_context, amount, ctx.accounts.asset_mint.decimals)?;
-
-        //Mint LP tokens
-        let mint_cpi_accounts = MintTo {
-            mint: ctx.accounts.lp_mint.to_account_info(),
-            to: ctx.accounts.user_lp_ata.to_account_info(),
-            authority: ctx.accounts.lp_mint.to_account_info()
-        };
-
+        //Get signer seeds for minting
         let ix_bytes = ix.to_le_bytes();
         let ix_bytes_ref = ix_bytes.as_ref();
         let seeds = &[MARKET_LP_MINT_SEED.as_bytes(), ix_bytes_ref, &[ctx.bumps.lp_mint]];
         let signer_seeds = &[&seeds[..]];
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_context = CpiContext::new_with_signer(cpi_program, mint_cpi_accounts, signer_seeds);
-        token_interface::mint_to(cpi_context, lp_tokens_to_mint)?;  
+
+        token_interface::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.lp_mint.to_account_info(),
+                    to: ctx.accounts.user_lp_ata.to_account_info(),
+                    authority: ctx.accounts.lp_mint.to_account_info()
+                },
+                signer_seeds),
+            lp_tokens_to_mint)?;  
 
         //Emit event for indexers, bots, analytics services, ect...
         //emit_cpi not needed if this is not expected to be invoked by other program CPI

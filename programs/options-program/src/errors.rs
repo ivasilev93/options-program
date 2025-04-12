@@ -18,4 +18,6 @@ pub enum CustomError {
     InvalidExpiry,
     #[msg("InsufficientColateral")]
     InsufficientColateral,
+    #[msg("InvalidPriceFeed")]
+    InvalidPriceFeed,
 }

@@ -184,6 +184,7 @@ impl BuyOption<'_> {
         expiry_stamp: {}
         max_potential_payout_in_tokens: {}
         quantity: {}
+        bought_at_price_usd: {}
         strike_price_usd: {}
         option: {:?}
         user: {}
@@ -193,6 +194,7 @@ impl BuyOption<'_> {
         params.expiry_stamp,
         max_potential_payout_in_tokens,
         params.quantity,
+        asset_price_usd,
         params.strike_price_usd,
         params.option.clone(),
         ctx.accounts.signer.key());
@@ -205,6 +207,7 @@ impl BuyOption<'_> {
             max_potential_payout_in_tokens: max_potential_payout_in_tokens,
             quantity: params.quantity,
             strike_price_usd: params.strike_price_usd,
+            bought_price_usd: asset_price_usd,
             option: params.option.clone(),
             user: ctx.accounts.signer.key()
         });

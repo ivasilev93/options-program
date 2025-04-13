@@ -20,4 +20,10 @@ pub enum CustomError {
     InsufficientColateral,
     #[msg("InvalidPriceFeed")]
     InvalidPriceFeed,
+    #[msg("ExerciseIsOverdue")]
+    ExerciseIsOverdue,
+    #[msg("InsufficientShares")]
+    InsufficientShares,
+    #[msg("InvalidState")]
+    InvalidState,
 }

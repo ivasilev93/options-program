@@ -1,4 +1,4 @@
-
+use core::cmp::min;
 use anchor_lang::prelude::*;
 
 use crate::{common::OptionType, errors::CustomError};
@@ -57,6 +57,44 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
     require!(lp_tokens_to_mint >= min_amount_out, CustomError::SlippageExceeded);
 
     Ok(lp_tokens_to_mint)
+}
+
+pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Market,) -> Result<(u64, u64)> {
+    require!(lp_tokens_to_burn > 0, CustomError::InvalidAmount);
+    require!(market.lp_minted > lp_tokens_to_burn, CustomError::InsufficientShares);
+
+    let scale = 1_000_000_000 as u64;
+
+    let ownership_ratio = (lp_tokens_to_burn as u128)
+        .checked_mul(scale as u128).unwrap()
+        .checked_div(market.lp_minted as u128).unwrap();
+
+    let market_tvl = market.reserve_supply.checked_add(market.premiums).unwrap();
+    require!(market_tvl > 0, CustomError::InvalidState);
+
+    let potential_withdraw_amount = ownership_ratio
+        .checked_mul(market_tvl as u128).unwrap()
+        .checked_div(scale as u128).unwrap() as u64;
+
+    let uncomitted_reserve = market.reserve_supply.checked_sub(market.committed_reserve).unwrap();
+    let max_withdrawable = uncomitted_reserve.checked_add(market.premiums).unwrap();   
+    let withdrawable_amount = min(max_withdrawable, potential_withdraw_amount);
+
+    require!(withdrawable_amount >= 1, CustomError::DustAmount);
+
+    let actual_lp_tokens_to_burn = if withdrawable_amount < potential_withdraw_amount {
+        ((withdrawable_amount as u128)
+            .checked_mul(market.lp_minted as u128).unwrap()
+            .checked_div(market_tvl as u128).unwrap()
+        ) as u64
+    } else {
+        lp_tokens_to_burn
+    };
+
+    //Other Solvency checks;
+    require!(actual_lp_tokens_to_burn > 0, CustomError::InvalidAmount);
+
+    Ok((withdrawable_amount, actual_lp_tokens_to_burn))
 }
 
 ///Calculates premium for a given market (asset), based on provided data 

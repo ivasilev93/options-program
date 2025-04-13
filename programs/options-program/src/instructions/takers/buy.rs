@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
 use anchor_lang::prelude::*;
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 use anchor_spl::token_interface::{self, *};
-use crate::{common::OptionType, constants::CALL_MULTIPLIER, errors::CustomError, state::{event::OptionBought, market::*, user_account::{self, *}}};
+use crate::{common::OptionType, constants::CALL_MULTIPLIER, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct BuyOptionParams {
@@ -80,7 +78,7 @@ impl BuyOption<'_> {
         let market = &mut ctx.accounts.market;
 
         //Check avaiable slots in array
-        let slot_ix = user_account.get_available_slot(params.market_ix)
+        let slot_ix = user_account.get_available_slot()
             .ok_or(CustomError::OrdersLimitExceeded)?;
 
         let stamp_now = Clock::get()?.unix_timestamp;
@@ -94,7 +92,6 @@ impl BuyOption<'_> {
         let price_update = &mut ctx.accounts.price_update;
         let maximum_age: u64 = 60;
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
-        // let feed_id: [u8; 32] = get_feed_id_from_hex(bytes)?;
         let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
 
         let token_scaling = 10_u64.pow(market.asset_decimals as u32);
@@ -102,16 +99,18 @@ impl BuyOption<'_> {
         //check if market has enough collateral to support options exercises
         let max_potential_payout_in_tokens = match params.option {
             OptionType::CALL => {
-                let usd_payout = (params.strike_price_usd as u128)
+                let usd_payout = (price.price as u128) //using current spot price instead of strike?
                 .checked_mul(CALL_MULTIPLIER as u128).unwrap()
                 .checked_mul(params.quantity as u128).unwrap();
 
-                (usd_payout * token_scaling as u128 / price.price as u128) as u64
+                (usd_payout * token_scaling as u128).checked_div(price.price as u128).unwrap() as u64
             },
             OptionType::PUT => {
                 let usd_payout = (params.strike_price_usd as u128)
                 .checked_mul(params.quantity as u128).unwrap();
-                (usd_payout * token_scaling as u128 / price.price as u128) as u64
+
+                (usd_payout * token_scaling as u128).checked_div(price.price as u128).unwrap() as u64
+
             }
         };
 
@@ -125,6 +124,7 @@ impl BuyOption<'_> {
         let time_to_expire_in_years = time_distance as f64 / seconds_per_year;
         let volatility = market.volatility_bps as f64 / 1000.0; // Not optimal solution. Just for demo simplicity.
 
+        //Premium amount is returned in tokens from calculate_premium
         let premium_amount = calculate_premium(
             strike_price_usd,
             asset_price_usd,
@@ -175,10 +175,13 @@ impl BuyOption<'_> {
             market_ix: params.market_ix,
             option_type: params.option.clone(),
             premium: premium_amount,
-            strike_price: params.strike_price_usd
+            strike_price: params.strike_price_usd,
+            quantity: params.quantity,
+            max_potential_payout_in_tokens: max_potential_payout_in_tokens
         };
 
         msg!("Option has been bought: 
+        option ix {} 
         market: {}
         created_stamp: {}
         expiry_stamp: {}
@@ -189,6 +192,7 @@ impl BuyOption<'_> {
         option: {:?}
         user: {}
         ",
+        slot_ix,
         params.market_ix,
         stamp_now,
         params.expiry_stamp,
@@ -207,9 +211,10 @@ impl BuyOption<'_> {
             max_potential_payout_in_tokens: max_potential_payout_in_tokens,
             quantity: params.quantity,
             strike_price_usd: params.strike_price_usd,
-            bought_price_usd: asset_price_usd,
+            bought_at_price_usd: asset_price_usd,
             option: params.option.clone(),
-            user: ctx.accounts.signer.key()
+            user: ctx.accounts.signer.key(),
+            option_ix: slot_ix as u8
         });
 
         Ok(())

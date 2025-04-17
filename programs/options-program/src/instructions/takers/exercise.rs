@@ -28,11 +28,12 @@ pub struct ExerciseOption<'info> {
         ],
         bump
     )]
-    pub account: Account<'info, UserAccount>,
+    pub account: AccountLoader<'info, UserAccount>,
 
     #[account(
         mut,
-        token::mint = asset_mint
+        token::mint = asset_mint,
+        token::authority = signer
     )]
     pub user_token_acc: InterfaceAccount<'info, TokenAccount>,
 
@@ -64,7 +65,7 @@ pub struct ExerciseOption<'info> {
 
 impl ExerciseOption<'_> {
     pub fn handle(ctx: Context<ExerciseOption>, market_ix: u16, option_id: u8) -> Result<()> {
-        let user_account = &mut ctx.accounts.account;
+        let user_account = &mut ctx.accounts.account.load_mut()?;
         let market = &mut ctx.accounts.market;
         let option = &mut user_account.options[option_id as usize];
 
@@ -81,7 +82,7 @@ impl ExerciseOption<'_> {
 
         let token_scaling = 10_u64.pow(market.asset_decimals as u32);
 
-        let profit_usd = match option.option_type {
+        let profit_usd = match OptionType::try_from(option.option_type).unwrap() {
             OptionType::CALL => {
                 max(price.price as u64 - option.strike_price, 0).checked_mul(option.quantity).unwrap()
             },
@@ -155,7 +156,7 @@ impl ExerciseOption<'_> {
         emit!(OptionExercised {
             market: market_ix,
             quantity: option.quantity,
-            option: option.option_type.clone(),
+            option: OptionType::try_from(option.option_type).unwrap(),
             user: ctx.accounts.signer.key(),
             option_ix: option_id as u8,
             profit_usd: profit_usd,

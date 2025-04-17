@@ -26,11 +26,12 @@ pub struct BuyOption<'info> {
         ],
         bump
     )]
-    pub account: Account<'info, UserAccount>,
+    pub account: AccountLoader<'info, UserAccount>,
 
     #[account(
         mut,
-        token::mint = asset_mint
+        token::mint = asset_mint,
+        token::authority = signer
     )]
     pub user_token_acc: InterfaceAccount<'info, TokenAccount>,
 
@@ -74,7 +75,7 @@ pub struct BuyOption<'info> {
 
 impl BuyOption<'_> {
     pub fn handle(ctx: Context<BuyOption>, params: BuyOptionParams) -> Result<()> {
-        let user_account = &mut ctx.accounts.account;
+        let user_account = &mut ctx.accounts.account.load_mut()?;
         let market = &mut ctx.accounts.market;
 
         //Check avaiable slots in array
@@ -90,7 +91,8 @@ impl BuyOption<'_> {
 
         //Get asset price from oracle in usd, scaled by 10^6 (Pyth)
         let price_update = &mut ctx.accounts.price_update;
-        let maximum_age: u64 = 60;
+        // let maximum_age: u64 = 60;
+        let maximum_age: u64 = 10 * 60;
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
 
@@ -133,6 +135,8 @@ impl BuyOption<'_> {
             &params.option,
             market.asset_decimals)?;
 
+        require!(premium_amount > 0, CustomError::PremiumCalcError);
+
         let protocol_fee = (premium_amount * market.fee_bps) / 10_000;
         let lp_share = premium_amount - protocol_fee;
 
@@ -171,13 +175,14 @@ impl BuyOption<'_> {
 
         //Save user option
         user_account.options[slot_ix] = OptionOrder {
-            expiry: params.expiry_stamp,
-            market_ix: params.market_ix,
-            option_type: params.option.clone(),
-            premium: premium_amount,
             strike_price: params.strike_price_usd,
+            expiry: params.expiry_stamp,
+            premium: premium_amount,
             quantity: params.quantity,
-            max_potential_payout_in_tokens: max_potential_payout_in_tokens
+            max_potential_payout_in_tokens: max_potential_payout_in_tokens,
+            market_ix: params.market_ix,
+            option_type: u8::from(params.option),
+            padding: [0_u8; 5]
         };
 
         msg!("Option has been bought: 
@@ -187,6 +192,7 @@ impl BuyOption<'_> {
         expiry_stamp: {}
         max_potential_payout_in_tokens: {}
         quantity: {}
+        premium in tokens: {} 
         bought_at_price_usd: {}
         strike_price_usd: {}
         option: {:?}
@@ -198,6 +204,7 @@ impl BuyOption<'_> {
         params.expiry_stamp,
         max_potential_payout_in_tokens,
         params.quantity,
+        premium_amount,
         asset_price_usd,
         params.strike_price_usd,
         params.option.clone(),

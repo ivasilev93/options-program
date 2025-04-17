@@ -26,4 +26,6 @@ pub enum CustomError {
     InsufficientShares,
     #[msg("InvalidState")]
     InvalidState,
+    #[msg("PremiumCalcError")]
+    PremiumCalcError,
 }

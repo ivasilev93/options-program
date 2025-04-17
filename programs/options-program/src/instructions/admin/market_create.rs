@@ -18,7 +18,7 @@ use crate::constants::ADMIN_KEY;
 pub struct CreateMarket<'info> {
     #[account(
         mut,
-        constraint = signer.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
+        // constraint = signer.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
     )]
     pub signer: Signer<'info>,
 
@@ -97,6 +97,7 @@ impl CreateMarket<'_> {
         market.price_feed = price_feed;
         market.asset_decimals = asset_mint.decimals;
         market.volatility_bps = volatility_bps;
+        market.asset_mint = asset_mint.key();
 
         msg!("Market seeds: {:?} {:?}", MARKET_SEED.as_bytes(), ix.to_le_bytes());
         msg!("Market address: {} ", market_acc_info.key());

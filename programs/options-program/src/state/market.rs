@@ -14,7 +14,8 @@ pub struct Market {
 
     pub id: u16,
     #[max_len(32)]
-    pub name: String,        
+    pub name: String,     
+    pub asset_mint: Pubkey,   
     pub fee_bps: u64, // 50 bps = 0.5%
     pub bump: u8,
     pub reserve_supply: u64,      // Token smallest units (e.g., 10^9 for SOL, 10^6 for JUP)
@@ -142,6 +143,7 @@ pub fn calculate_premium(
 
     // Scale back to u64 (10^6)
     let premium_scaled = (premium_in_tokens * token_scaling) as u64;
+    
     Ok(premium_scaled)
 }
 
@@ -155,9 +157,45 @@ fn approximate_normal_cdf(x: f64) -> Result<f64> {
 }
 
 #[cfg(test)]
-mod market_lp_shares_tests {
-    use std::str::FromStr;
+mod premiums_tests {
+    use super::*;
 
+    #[test]
+    fn test_put() {
+        let strike_price_usd = 120 * 10u64.pow(6);
+        let current_price_usd = 130 * 10u64.pow(6);
+        let time_distance= (1 * 24 * 60 * 60) as u64; // 1 day in seconnds
+        // let time_distance = 300u64;
+        let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
+        let time_to_expire_in_years = time_distance as f64 / seconds_per_year;
+        let volatility = 0.8f64;
+        let deicmals = 9; //wSOL e.g.
+
+
+        let premium_put = calculate_premium(
+            strike_price_usd, 
+            current_price_usd, 
+            time_to_expire_in_years, 
+            volatility, 
+            &OptionType::PUT, 
+            deicmals).unwrap();
+
+        assert!(premium_put > 0u64, "Put premium is null");
+
+        let premium_call = calculate_premium(
+            strike_price_usd, 
+            current_price_usd, 
+            time_to_expire_in_years, 
+            volatility, 
+            &OptionType::CALL, 
+            deicmals).unwrap();
+
+        assert!(premium_call > 0u64, "Call premium is null");
+    }
+}
+
+#[cfg(test)]
+mod market_lp_shares_tests {
     use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
     use super::*;
@@ -174,7 +212,8 @@ mod market_lp_shares_tests {
             bump: 120,
             volatility_bps: 8000, //80%
             price_feed: String::from("0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"), 
-            asset_decimals: 9
+            asset_decimals: 9,
+            asset_mint: Pubkey::new_unique()
         }
     }
 

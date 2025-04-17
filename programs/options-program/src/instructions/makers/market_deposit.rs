@@ -41,6 +41,7 @@ pub struct MarketDeposit<'info> {
             params.ix.to_le_bytes().as_ref()
         ],
         bump,
+        constraint = asset_mint.key() == market.asset_mint
     )]
     pub market: Account<'info, Market>,
 
@@ -74,7 +75,6 @@ pub struct MarketDeposit<'info> {
 
 impl MarketDeposit<'_> {
     pub fn handle(ctx: Context<MarketDeposit>, amount: u64, min_amount_out: u64, ix: u16) -> Result<()> {
-
         //Calc lp tokens(share) to mint
         let market = &mut ctx.accounts.market;
         let lp_tokens_before = market.lp_minted;

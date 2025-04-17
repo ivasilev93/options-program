@@ -17,7 +17,7 @@ pub struct AccountCreate<'info> {
         bump,
         space = 8 + UserAccount::INIT_SPACE
     )]
-    pub account: Account<'info, UserAccount>,
+    pub account: AccountLoader<'info, UserAccount>,
     pub system_program: Program<'info, System>
 }
 

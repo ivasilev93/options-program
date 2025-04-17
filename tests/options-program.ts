@@ -43,7 +43,7 @@ describe("options-program", async () => {
   console.log('Using Local Wallet: ', wallet.publicKey); 
 
   const SOL_USD_PRICE_FEED_ID = '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d';
-  const marketIx = 1;    
+  const marketIx = 10;    
   console.log('programid: ', program.programId);
 
   const FIVE_MINS_FROM_NOW = new anchor.BN(Math.floor(Date.now() / 1000) + 5 * 60);
@@ -80,6 +80,8 @@ describe("options-program", async () => {
     program.programId
   );
 
+  console.log('EEE: ', marketPDA, marketVaultPDA, lpMintPDA, protocolFeesVault)
+
   it("Non-admin cannot create new market", async () => {
     const nonAdmin = anchor.web3.Keypair.generate();
     const airdropSignature = await provider.connection.requestAirdrop(
@@ -97,7 +99,7 @@ describe("options-program", async () => {
       const createMarketSignature = await program.methods.createMarket(
         new anchor.BN(50),
         'wSOL market',
-        marketIx,
+        2222,
         SOL_USD_PRICE_FEED_ID,
         8000) //Pyth SOL/USD feed
         .accountsStrict({
@@ -135,7 +137,7 @@ describe("options-program", async () => {
       'wSOL market',
       marketIx,
       SOL_USD_PRICE_FEED_ID,
-      8000) //Pyth SOL/USD feed
+      8000) 
       .accountsStrict({
         market: marketPDA,
         marketVault: marketVaultPDA,
@@ -403,8 +405,8 @@ describe("options-program", async () => {
     });
     
     // Wrap SOL for both users
-    const alice_wSolTokenAcc = await wrapSol(provider.connection, alice, 5000 * LAMPORTS_PER_SOL);
-    const bob_wSolTokenAcc = await wrapSol(provider.connection, bob, 5000 * LAMPORTS_PER_SOL);
+    const alice_wSolTokenAcc = await wrapSol(provider.connection, alice, 6000 * LAMPORTS_PER_SOL);
+    const bob_wSolTokenAcc = await wrapSol(provider.connection, bob, 6000 * LAMPORTS_PER_SOL);
     
     // Create LP token accounts for both users
     const alice_lpTokenAcc = await getAssociatedTokenAddress(
@@ -436,7 +438,7 @@ describe("options-program", async () => {
     console.log('Initial market vault balance:', initialMarketVaultBalance.value.amount);
     
     // 1. Alice deposits 1000 SOL
-    const aliceDepositAmount = 1000 * LAMPORTS_PER_SOL;
+    const aliceDepositAmount = 5000 * LAMPORTS_PER_SOL;
     await program.methods
       .marketDeposit({amount: new anchor.BN(aliceDepositAmount), minAmountOut: new anchor.BN(1), ix: Number(marketIx)})
       .accountsStrict({
@@ -489,7 +491,7 @@ describe("options-program", async () => {
     });
     
     // Wrap SOL for trader
-    const trader_wSolTokenAcc = await wrapSol(provider.connection, trader, 5000 * LAMPORTS_PER_SOL);
+    const trader_wSolTokenAcc = await wrapSol(provider.connection, trader, 6000 * LAMPORTS_PER_SOL);
     
     // Create trader account
     const [trader_accountPda] = await anchor.web3.PublicKey.findProgramAddress(
@@ -513,7 +515,7 @@ describe("options-program", async () => {
     const protocolFeesBeforeOption = await provider.connection.getTokenAccountBalance(protocolFeesVault);
     
     // 3. Trader buys an option
-    const optionQuantity = 10;
+    const optionQuantity = 400;
     const strikePrice = 140000000; // $140
     
     await program.methods.buy({
@@ -575,7 +577,7 @@ describe("options-program", async () => {
     assert.approximately(actualPremiumIncrease, expectedPremiumIncrease, 5); // Allow small rounding errors
     
     // 4. Bob deposits after options were purchased (should get fewer LP tokens)
-    const bobDepositAmount = 1000 * LAMPORTS_PER_SOL;
+    const bobDepositAmount = 5000 * LAMPORTS_PER_SOL;
     await program.methods
       .marketDeposit({amount: new anchor.BN(bobDepositAmount), minAmountOut: new anchor.BN(1), ix: Number(marketIx)})
       .accountsStrict({
@@ -657,7 +659,7 @@ describe("options-program", async () => {
     const initialPremiums = initialMarket.premiums;
     
     // Buy first option (CALL option)
-    await program.methods.buy({
+    const buy1tx = await program.methods.buy({
       marketIx: marketIx,
       option: { call: {} },
       quantity: new anchor.BN(5),
@@ -676,6 +678,8 @@ describe("options-program", async () => {
     })
     .signers([trader])
     .rpc();
+
+    console.log('First buy tx: ', buy1tx)
     
     // Get market state after first option
     const marketAfterFirstOption = await program.account.market.fetch(marketPDA);
@@ -686,12 +690,12 @@ describe("options-program", async () => {
     console.log("First option premium:", firstOptionPremium.toString());
     
     // Buy second option (PUT option)
-    await program.methods.buy({
+    const buy2tx = await  await program.methods.buy({
       marketIx: marketIx,
-      option: { put: {} },
-      quantity: new anchor.BN(10),
-      expiryStamp: new anchor.BN(Math.floor(Date.now() / 1000) + 10 * 60),
-      strikePriceUsd: new anchor.BN(120000000) // $120
+      option: { call: {} },
+      quantity: new anchor.BN(200),
+      expiryStamp: FIVE_MINS_FROM_NOW,
+      strikePriceUsd: new anchor.BN(150000000) // $120
     }).accountsStrict({
       account: trader_accountPda,
       assetMint: NATIVE_MINT,
@@ -706,6 +710,8 @@ describe("options-program", async () => {
     .signers([trader])
     .rpc();
     
+    console.log('First 2 tx: ', buy2tx)
+
     // Get market state after second option
     const marketAfterSecondOption = await program.account.market.fetch(marketPDA);
     const secondOptionCommitted = marketAfterSecondOption.committedReserve.sub(marketAfterFirstOption.committedReserve);
@@ -735,7 +741,7 @@ describe("options-program", async () => {
     assert.equal(totalPremiumIncrease.toString(), expectedPremiumIncrease.toString());
   });
   
-  it("Verify proper accounting when too many options are purchased (insufficient collateral)", async () => {
+  it("Reject buy order when insufficient collateral", async () => {
     // This test tries to buy options that would require more collateral than available
     
     // Setup user
@@ -772,16 +778,16 @@ describe("options-program", async () => {
     
     // Get initial market state
     const initialMarket = await program.account.market.fetch(marketPDA);
-    console.log("Initial market state:", {
-      reserve_supply: initialMarket.reserveSupply.toString(),
-      committed_reserve: initialMarket.committedReserve.toString(),
-      available_collateral: initialMarket.reserveSupply.sub(initialMarket.committedReserve).toString()
-    });
+    // console.log("Initial market state:", {
+    //   reserve_supply: initialMarket.reserveSupply.toString(),
+    //   committed_reserve: initialMarket.committedReserve.toString(),
+    //   available_collateral: initialMarket.reserveSupply.sub(initialMarket.committedReserve).toString()
+    // });
     
     // Try to buy an option that would require more collateral than available
     // First, determine the current SOL price from Pyth
     // For test purposes, we'll use a very large quantity to ensure it exceeds available collateral
-    const extremely_large_quantity = 100000; // Very large quantity
+    const extremely_large_quantity = 100000000; 
     
     try {
       await program.methods.buy({
@@ -817,10 +823,10 @@ describe("options-program", async () => {
     
     // Verify market state hasn't changed
     const finalMarket = await program.account.market.fetch(marketPDA);
-    console.log("Final market state:", {
-      reserve_supply: finalMarket.reserveSupply.toString(),
-      committed_reserve: finalMarket.committedReserve.toString()
-    });
+    // console.log("Final market state:", {
+    //   reserve_supply: finalMarket.reserveSupply.toString(),
+    //   committed_reserve: finalMarket.committedReserve.toString()
+    // });
     
     assert.equal(
       finalMarket.committedReserve.toString(), 

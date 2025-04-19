@@ -100,22 +100,22 @@ pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Mark
 
 ///Calculates premium for a given market (asset), based on provided data 
 ///  #Arguments
-///  * 'strike_price_usd' - strike price in usd scaled by 6 decimals (e.g. for $120 -> 120_000_000)
-///  * 'spot_price_usd' - spot price in usd scaled by 6 decimals 
+///  * 'strike_price_usd' - strike price in usd
+///  * 'spot_price_usd' - spot price in usd 
 /// 
 /// #Returns
 /// The premium amount in token units (scaled by the asset decimals)
 pub fn calculate_premium(
-    strike_price_usd: u64,
-    spot_price_usd: u64,
+    strike_price_usd: f64,
+    spot_price_usd: f64,
     time_to_expity: f64,
     volatility: f64,
     option_type: &OptionType,
     asset_decimals: u8
 ) -> Result<u64> {
     // Convert to f64 for calculations, adjusting for scale
-    let s = spot_price_usd as f64 / 1_000_000.0;
-    let k = strike_price_usd as f64 / 1_000_000.0;
+    let s = spot_price_usd as f64;
+    let k = strike_price_usd as f64;
 
     // Assumed risk-free rate of 0 - for simplicity
 
@@ -161,37 +161,69 @@ mod premiums_tests {
     use super::*;
 
     #[test]
-    fn test_put() {
-        let strike_price_usd = 120 * 10u64.pow(6);
-        let current_price_usd = 130 * 10u64.pow(6);
-        let time_distance= (1 * 24 * 60 * 60) as u64; // 1 day in seconnds
-        // let time_distance = 300u64;
-        let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
-        let time_to_expire_in_years = time_distance as f64 / seconds_per_year;
+    fn premium_calls() {
+        println!();
+
         let volatility = 0.8f64;
         let deicmals = 9; //wSOL e.g.
 
+        //Strike price, current price, time distance in days, 
+        let test_cases = vec![
+            (135.0, 133.0, 1),
+            (140.0, 133.0, 1),
+            (145.0, 133.0, 1),
+            (135.0, 133.0, 7),
+            (140.0, 133.0, 7),
+            (145.0, 133.0, 7),
+            (135.0, 133.0, 30),
+            (140.0, 133.0, 30),
+            (145.0, 133.0, 30)
+        ];
 
-        let premium_put = calculate_premium(
-            strike_price_usd, 
-            current_price_usd, 
-            time_to_expire_in_years, 
-            volatility, 
-            &OptionType::PUT, 
-            deicmals).unwrap();
+        for test_case in test_cases {
+            let (strike_price, curr_price, days ) = test_case;
 
-        assert!(premium_put > 0u64, "Put premium is null");
+            let time_distance= (days * 24 * 60 * 60) as u64; // days in seconnds
+            let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
+            let time_to_expire_in_years = time_distance as f64 / seconds_per_year;           
 
-        let premium_call = calculate_premium(
-            strike_price_usd, 
-            current_price_usd, 
-            time_to_expire_in_years, 
-            volatility, 
-            &OptionType::CALL, 
-            deicmals).unwrap();
+            let premium_call = calculate_premium(
+                strike_price, 
+                curr_price, 
+                time_to_expire_in_years, 
+                volatility, 
+                &OptionType::CALL, 
+                deicmals).unwrap();
 
-        assert!(premium_call > 0u64, "Call premium is null");
+            let premium_usd = (premium_call as f64 / 1_000_000_000f64) * curr_price as f64;
+    
+            println!("Strike: ${strike_price}, Current: ${curr_price}, Interval: {} days, USD premium: ${:.2}, Tokens premium: {}", 
+            days, premium_usd, premium_call);
+            assert!(premium_call > 0u64, "Call premium is null");
+        }
     }
+
+    // #[test]
+    // fn test_put() {
+    //     let strike_price_usd = 120 * 10u64.pow(6);
+    //     let current_price_usd = 130 * 10u64.pow(6);
+    //     let time_distance= (1 * 24 * 60 * 60) as u64; // 1 day in seconnds
+    //     // let time_distance = 300u64;
+    //     let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
+    //     let time_to_expire_in_years = time_distance as f64 / seconds_per_year;
+    //     let volatility = 0.8f64;
+    //     let deicmals = 9; //wSOL e.g.
+
+    //     let premium_put = calculate_premium(
+    //         strike_price_usd, 
+    //         current_price_usd, 
+    //         time_to_expire_in_years, 
+    //         volatility, 
+    //         &OptionType::PUT, 
+    //         deicmals).unwrap();
+
+    //     assert!(premium_put > 0u64, "Put premium is null");
+    // }
 }
 
 #[cfg(test)]

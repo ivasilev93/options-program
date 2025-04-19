@@ -13,7 +13,7 @@ pub struct UserAccount {
 #[zero_copy]
 #[repr(C)]
 pub struct OptionOrder {    
-    pub strike_price: u64,
+    pub strike_price: u64,//scaled by 10^6
     pub expiry: i64,
     pub premium: u64,
     pub quantity: u64,

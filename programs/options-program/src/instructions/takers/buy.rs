@@ -1,13 +1,13 @@
 use anchor_lang::prelude::*;
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 use anchor_spl::token_interface::{self, *};
-use crate::{common::OptionType, constants::CALL_MULTIPLIER, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
+use crate::{common::OptionType, constants::{CALL_MULTIPLIER, STRIKE_PRICE_DECIMALS}, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct BuyOptionParams {
     pub market_ix: u16,
     pub option: OptionType,
-    pub strike_price_usd: u64, //strike price in usd scaled by 6 decimals (e.g. for $120 -> 120_000_000)
+    pub strike_price_usd: u64, //strike price in usd e.g. 120_000_000 for $120.00; 10^6
     pub expiry_stamp: i64,
     pub quantity: u64
 }
@@ -92,27 +92,34 @@ impl BuyOption<'_> {
         //Get asset price from oracle in usd, scaled by 10^6 (Pyth)
         let price_update = &mut ctx.accounts.price_update;
         // let maximum_age: u64 = 60;
-        let maximum_age: u64 = 10 * 60;
+        let maximum_age: u64 = 100 * 60;
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
+        let pyth_decimals = price.exponent as u32; //as u because it comes negative (-8)
 
         let token_scaling = 10_u64.pow(market.asset_decimals as u32);
 
         //check if market has enough collateral to support options exercises
         let max_potential_payout_in_tokens = match params.option {
             OptionType::CALL => {
-                let usd_payout = (price.price as u128) //using current spot price instead of strike?
-                .checked_mul(CALL_MULTIPLIER as u128).unwrap()
-                .checked_mul(params.quantity as u128).unwrap();
+                let potential_price_movement = (price.price as u128)
+                    .checked_mul(market.volatility_bps as u128).unwrap()
+                    .checked_div(10_000).unwrap();
+
+                let usd_payout = potential_price_movement
+                    .checked_mul(params.quantity as u128).unwrap();
 
                 (usd_payout * token_scaling as u128).checked_div(price.price as u128).unwrap() as u64
             },
             OptionType::PUT => {
-                let usd_payout = (params.strike_price_usd as u128)
-                .checked_mul(params.quantity as u128).unwrap();
+                let scaling_factor = 10u128.pow(pyth_decimals.checked_sub(STRIKE_PRICE_DECIMALS).unwrap());
+                let normalized_strike_price = (params.strike_price_usd as u128)
+                .checked_mul(scaling_factor).unwrap();
+
+                let usd_payout = normalized_strike_price
+                    .checked_mul(params.quantity as u128).unwrap();
 
                 (usd_payout * token_scaling as u128).checked_div(price.price as u128).unwrap() as u64
-
             }
         };
 
@@ -121,13 +128,14 @@ impl BuyOption<'_> {
 
         //Calculate premium
         let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
-        let asset_price_usd = price.price as u64; 
-        let strike_price_usd = params.strike_price_usd;
+        let strike_price_usd = params.strike_price_usd as f64 / 10_f64.powi(STRIKE_PRICE_DECIMALS as i32);
         let time_to_expire_in_years = time_distance as f64 / seconds_per_year;
         let volatility = market.volatility_bps as f64 / 1000.0; // Not optimal solution. Just for demo simplicity.
+        let asset_price_usd = (price.price as f64) * 10.0f64.powi(price.exponent);
 
+        
         //Premium amount is returned in tokens from calculate_premium
-        let premium_amount = calculate_premium(
+        let single_premium_amount = calculate_premium(
             strike_price_usd,
             asset_price_usd,
             time_to_expire_in_years,
@@ -135,6 +143,8 @@ impl BuyOption<'_> {
             &params.option,
             market.asset_decimals)?;
 
+
+        let premium_amount = single_premium_amount.checked_mul(params.quantity).unwrap();
         require!(premium_amount > 0, CustomError::PremiumCalcError);
 
         let protocol_fee = (premium_amount * market.fee_bps) / 10_000;
@@ -175,9 +185,9 @@ impl BuyOption<'_> {
 
         //Save user option
         user_account.options[slot_ix] = OptionOrder {
-            strike_price: params.strike_price_usd,
+            strike_price: params.strike_price_usd as u64, //ROUND ERR
             expiry: params.expiry_stamp,
-            premium: premium_amount,
+            premium: single_premium_amount,
             quantity: params.quantity,
             max_potential_payout_in_tokens: max_potential_payout_in_tokens,
             market_ix: params.market_ix,
@@ -204,7 +214,7 @@ impl BuyOption<'_> {
         params.expiry_stamp,
         max_potential_payout_in_tokens,
         params.quantity,
-        premium_amount,
+        single_premium_amount,
         asset_price_usd,
         params.strike_price_usd,
         params.option.clone(),
@@ -217,8 +227,8 @@ impl BuyOption<'_> {
             expiry_stamp: params.expiry_stamp,
             max_potential_payout_in_tokens: max_potential_payout_in_tokens,
             quantity: params.quantity,
-            strike_price_usd: params.strike_price_usd,
-            bought_at_price_usd: asset_price_usd,
+            strike_price_usd: params.strike_price_usd as u64, //TODO ROUND ERR,
+            bought_at_price_usd: asset_price_usd as u64, //TODO ROUND ERR,
             option: params.option.clone(),
             user: ctx.accounts.signer.key(),
             option_ix: slot_ix as u8

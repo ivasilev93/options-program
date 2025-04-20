@@ -23,7 +23,7 @@ pub struct OptionBought {
     pub bought_at_price_usd: u64, //bought price in usd scaled by 6 decimals 
     pub max_potential_payout_in_tokens: u64,
     pub expiry_stamp: i64,
-    pub created_stamp: i64,
+    // pub created_stamp: i64,
     pub quantity: u64
 }
 

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 use anchor_spl::token_interface::{self, *};
-use crate::{common::OptionType, constants::{CALL_MULTIPLIER, STRIKE_PRICE_DECIMALS}, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
+use crate::{common::{calc_time_distance, OptionType}, constants::{BASIS_POINTS_DENOMINATOR, CALL_MULTIPLIER, STRIKE_PRICE_DECIMALS}, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct BuyOptionParams {
@@ -81,20 +81,14 @@ impl BuyOption<'_> {
         //Check avaiable slots in array
         let slot_ix = user_account.get_available_slot()
             .ok_or(CustomError::OrdersLimitExceeded)?;
-
-        let stamp_now = Clock::get()?.unix_timestamp;
-        let time_distance = params.expiry_stamp - stamp_now;
-        let seconds_in_day: i64 = 86400;
-        require!(time_distance > 0, CustomError::InvalidExpiry);
-        require!(time_distance / seconds_in_day <= 30, CustomError::InvalidExpiry);
-        // require!(market.price_feed == ctx.accounts.price_update.key(), CustomError::OrdersLimitExceeded);  this is not correct. on program address for pyth, multiple feed ids
+        let clock = Clock::get()?;
 
         //Get asset price from oracle in usd, scaled by 10^6 (Pyth)
         let price_update = &mut ctx.accounts.price_update;
         // let maximum_age: u64 = 60;
         let maximum_age: u64 = 100 * 60;
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
-        let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
+        let price = price_update.get_price_no_older_than(&clock, maximum_age, &feed_id)?;
         let pyth_decimals = price.exponent as u32; //as u because it comes negative (-8)
 
         let token_scaling = 10_u64.pow(market.asset_decimals as u32);
@@ -104,7 +98,7 @@ impl BuyOption<'_> {
             OptionType::CALL => {
                 let potential_price_movement = (price.price as u128)
                     .checked_mul(market.volatility_bps as u128).unwrap()
-                    .checked_div(10_000).unwrap();
+                    .checked_div(BASIS_POINTS_DENOMINATOR as u128).unwrap();
 
                 let usd_payout = potential_price_movement
                     .checked_mul(params.quantity as u128).unwrap();
@@ -127,12 +121,10 @@ impl BuyOption<'_> {
         require!(available_collateral > max_potential_payout_in_tokens, CustomError::InsufficientColateral);        
 
         //Calculate premium
-        let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
         let strike_price_usd = params.strike_price_usd as f64 / 10_f64.powi(STRIKE_PRICE_DECIMALS as i32);
-        let time_to_expire_in_years = time_distance as f64 / seconds_per_year;
-        let volatility = market.volatility_bps as f64 / 1000.0; // Not optimal solution. Just for demo simplicity.
+        let volatility = market.volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64; // Not optimal solution. Just for demo simplicity.
         let asset_price_usd = (price.price as f64) * 10.0f64.powi(price.exponent);
-
+        let time_to_expire_in_years = calc_time_distance(&clock, params.expiry_stamp).unwrap();
         
         //Premium amount is returned in tokens from calculate_premium
         let single_premium_amount = calculate_premium(
@@ -192,13 +184,13 @@ impl BuyOption<'_> {
             max_potential_payout_in_tokens: max_potential_payout_in_tokens,
             market_ix: params.market_ix,
             option_type: u8::from(params.option),
-            padding: [0_u8; 5]
+            ix: slot_ix as u8,
+            padding: [0_u8; 4]
         };
 
         msg!("Option has been bought: 
         option ix {} 
         market: {}
-        created_stamp: {}
         expiry_stamp: {}
         max_potential_payout_in_tokens: {}
         quantity: {}
@@ -210,7 +202,6 @@ impl BuyOption<'_> {
         ",
         slot_ix,
         params.market_ix,
-        stamp_now,
         params.expiry_stamp,
         max_potential_payout_in_tokens,
         params.quantity,
@@ -223,7 +214,6 @@ impl BuyOption<'_> {
         //Emit event
         emit!(OptionBought {
             market: params.market_ix,
-            created_stamp: stamp_now,
             expiry_stamp: params.expiry_stamp,
             max_potential_payout_in_tokens: max_potential_payout_in_tokens,
             quantity: params.quantity,

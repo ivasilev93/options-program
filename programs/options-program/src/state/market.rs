@@ -1,4 +1,4 @@
-use core::cmp::min;
+use core::{cmp::min};
 use anchor_lang::prelude::*;
 
 use crate::{common::OptionType, errors::CustomError};
@@ -113,6 +113,25 @@ pub fn calculate_premium(
     option_type: &OptionType,
     asset_decimals: u8
 ) -> Result<u64> {
+
+    println!("{} {} {} {} {:?} {}", 
+    strike_price_usd,
+    spot_price_usd,
+    time_to_expity,
+    volatility,
+    option_type,
+    asset_decimals
+    );
+
+    msg!("{} {} {} {} {:?} {}", 
+    strike_price_usd,
+    spot_price_usd,
+    time_to_expity,
+    volatility,
+    option_type,
+    asset_decimals
+    );
+
     // Convert to f64 for calculations, adjusting for scale
     let s = spot_price_usd as f64;
     let k = strike_price_usd as f64;

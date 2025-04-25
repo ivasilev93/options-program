@@ -1,5 +1,7 @@
 pub const ADMIN_KEY: &str = "FARXLJJbSwZyELTe8TXihES7o26B2d5NKkvCkETP7Gnz"; //local pub key
-pub const CALL_MULTIPLIER: u64 = 2; //Also might have to limit upside (cap at x3 purchase price) on ITM exercise for protocol solvency
+pub const CALL_MULTIPLIER: u64 = 2; 
+pub const PUT_MULTIPLIER: u64 = 2; 
+
 pub const BASIS_POINTS_DENOMINATOR: u64 = 10_000;
 pub const EXERCISE_INTERVAL_TOLERANCE: i64 = 300;
 

@@ -137,6 +137,15 @@ impl MarketWithdraw<'_> {
                 signer_seeds), 
                 lp_tokens_to_burn)?;
 
+        msg!("Market before: reserve - {}, premiums - {}, lp minted - {},", 
+            reserve_before, premiums_before, lp_tokens_before);
+
+        msg!("Market after: reserve - {}, premiums - {}, lp minted - {},", 
+            market.reserve_supply, market.premiums, market.lp_minted);
+
+        msg!("Burned lp tokens - {}", lp_tokens_to_burn);
+        msg!("Receiven asset tokens - {}", withdraw_amount);
+
         emit!(MakerWithdrawEvent {
             user: ctx.accounts.signer.key(),
             market: market.id,

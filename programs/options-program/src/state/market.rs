@@ -1,7 +1,10 @@
 use core::{cmp::min};
 use anchor_lang::prelude::*;
+use pyth_solana_receiver_sdk::price_update::Price;
 
-use crate::{common::OptionType, errors::CustomError};
+use crate::{common::OptionType, constants::*, errors::CustomError, instructions::takers::buy::BuyOptionParams};
+
+use super::user_account::OptionOrder;
 
 pub const MARKET_SEED: &str = "market";
 pub const MARKET_VAULT_SEED: &str = "market_vault";
@@ -26,6 +29,61 @@ pub struct Market {
     #[max_len(70)]
     pub price_feed: String, // Pyth feed (TOKEN)/USD
     pub asset_decimals: u8
+}
+
+pub fn calculate_required_collateral(
+    market: &Market,
+    option: &OptionType,
+    strike_price_scaled: u128,
+    current_price_scaled: u128,
+    quantity: u64
+) -> Result<u64> {
+
+    let required_collateral_usd = match option {
+        OptionType::CALL => {
+            // Simple approach
+            if current_price_scaled > strike_price_scaled {
+                // Already in the money: (current_price - strike_price) * quantity * 2
+                current_price_scaled
+                    .checked_sub(strike_price_scaled).unwrap()
+                    .checked_mul(quantity as u128).unwrap()
+                    .checked_mul(CALL_MULTIPLIER  as u128).unwrap()
+            } else {
+                // Not in the money yet      
+                strike_price_scaled
+                    .checked_sub(current_price_scaled).unwrap()
+                    .checked_mul(quantity as u128).unwrap()
+                    .checked_mul(CALL_MULTIPLIER  as u128).unwrap()            
+            }
+        },
+        OptionType::PUT => {
+            //Half of potential payout: (strike price * quantity) / 2
+            strike_price_scaled
+                .checked_mul(quantity as u128).unwrap()
+                .checked_div(PUT_MULTIPLIER as u128).unwrap()
+        }
+    };
+    
+    // Convert USD amount to token amount
+    // Price is in USD with 6 decimals, need to convert to token amount
+    let token_decimals = 10u128.pow(market.asset_decimals as u32);
+    
+    // (USD amount * token decimals) / (USD per token)
+    let required_collateral_tokens = required_collateral_usd
+        .checked_mul(token_decimals).unwrap()
+        .checked_div(current_price_scaled).unwrap();
+
+    msg!("required_collateral_usd: {}", required_collateral_usd);
+    msg!("token_decimals: {}", token_decimals);
+    msg!("required_collateral_tokens: {}", required_collateral_tokens);
+    msg!("market: {}", market.reserve_supply);
+    
+    // Ensure market has enough liquidity
+    require!(
+        market.reserve_supply.checked_sub(market.committed_reserve).unwrap() >= required_collateral_tokens as u64,
+        CustomError::InsufficientColateral);
+    
+    Ok(required_collateral_tokens as u64)
 }
 
 pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Market) -> Result<u64> {
@@ -221,28 +279,6 @@ mod premiums_tests {
             assert!(premium_call > 0u64, "Call premium is null");
         }
     }
-
-    // #[test]
-    // fn test_put() {
-    //     let strike_price_usd = 120 * 10u64.pow(6);
-    //     let current_price_usd = 130 * 10u64.pow(6);
-    //     let time_distance= (1 * 24 * 60 * 60) as u64; // 1 day in seconnds
-    //     // let time_distance = 300u64;
-    //     let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
-    //     let time_to_expire_in_years = time_distance as f64 / seconds_per_year;
-    //     let volatility = 0.8f64;
-    //     let deicmals = 9; //wSOL e.g.
-
-    //     let premium_put = calculate_premium(
-    //         strike_price_usd, 
-    //         current_price_usd, 
-    //         time_to_expire_in_years, 
-    //         volatility, 
-    //         &OptionType::PUT, 
-    //         deicmals).unwrap();
-
-    //     assert!(premium_put > 0u64, "Put premium is null");
-    // }
 }
 
 #[cfg(test)]

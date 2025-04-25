@@ -89,36 +89,25 @@ impl BuyOption<'_> {
         let maximum_age: u64 = 100 * 60;
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&clock, maximum_age, &feed_id)?;
-        let pyth_decimals = price.exponent as u32; //as u because it comes negative (-8)
+        let pyth_decimals = price.exponent.abs() as u32; //as u because it comes negative (-8)
+        let curr_price = price.price as u128;
 
-        let token_scaling = 10_u64.pow(market.asset_decimals as u32);
+        let scaled_strike_price = if pyth_decimals >= STRIKE_PRICE_DECIMALS {
+            params.strike_price_usd * 10u64.pow(pyth_decimals - STRIKE_PRICE_DECIMALS)
+        } else {
+            params.strike_price_usd / 10u64.pow(STRIKE_PRICE_DECIMALS - pyth_decimals)
+        } as u128;
 
-        //check if market has enough collateral to support options exercises
-        let max_potential_payout_in_tokens = match params.option {
-            OptionType::CALL => {
-                let potential_price_movement = (price.price as u128)
-                    .checked_mul(market.volatility_bps as u128).unwrap()
-                    .checked_div(BASIS_POINTS_DENOMINATOR as u128).unwrap();
-
-                let usd_payout = potential_price_movement
-                    .checked_mul(params.quantity as u128).unwrap();
-
-                (usd_payout * token_scaling as u128).checked_div(price.price as u128).unwrap() as u64
-            },
-            OptionType::PUT => {
-                let scaling_factor = 10u128.pow(pyth_decimals.checked_sub(STRIKE_PRICE_DECIMALS).unwrap());
-                let normalized_strike_price = (params.strike_price_usd as u128)
-                .checked_mul(scaling_factor).unwrap();
-
-                let usd_payout = normalized_strike_price
-                    .checked_mul(params.quantity as u128).unwrap();
-
-                (usd_payout * token_scaling as u128).checked_div(price.price as u128).unwrap() as u64
-            }
-        };
+        let required_collateral = calculate_required_collateral(
+            &market,
+            &params.option,
+            scaled_strike_price,
+            curr_price,
+            params.quantity
+        )?;
 
         let available_collateral = market.reserve_supply - market.committed_reserve;
-        require!(available_collateral > max_potential_payout_in_tokens, CustomError::InsufficientColateral);        
+        require!(available_collateral > required_collateral, CustomError::InsufficientColateral);        
 
         //Calculate premium
         let strike_price_usd = params.strike_price_usd as f64 / 10_f64.powi(STRIKE_PRICE_DECIMALS as i32);
@@ -172,16 +161,18 @@ impl BuyOption<'_> {
             protocol_fee,
             ctx.accounts.asset_mint.decimals)?;
 
-        market.premiums = market.premiums.checked_add(lp_share).ok_or(CustomError::Overflow)?;
-        market.committed_reserve = market.committed_reserve.checked_add(max_potential_payout_in_tokens).ok_or(CustomError::Overflow)?;
+        market.premiums = market.premiums
+            .checked_add(lp_share).ok_or(CustomError::Overflow)?;
+        market.committed_reserve = market.committed_reserve
+            .checked_add(required_collateral).ok_or(CustomError::Overflow)?;
 
         //Save user option
         user_account.options[slot_ix] = OptionOrder {
-            strike_price: params.strike_price_usd as u64, //ROUND ERR
+            strike_price: params.strike_price_usd, //ROUND ERR
             expiry: params.expiry_stamp,
             premium: single_premium_amount,
             quantity: params.quantity,
-            max_potential_payout_in_tokens: max_potential_payout_in_tokens,
+            max_potential_payout_in_tokens: required_collateral,
             market_ix: params.market_ix,
             option_type: u8::from(params.option),
             ix: slot_ix as u8,
@@ -203,7 +194,7 @@ impl BuyOption<'_> {
         slot_ix,
         params.market_ix,
         params.expiry_stamp,
-        max_potential_payout_in_tokens,
+        required_collateral,
         params.quantity,
         single_premium_amount,
         asset_price_usd,
@@ -211,11 +202,11 @@ impl BuyOption<'_> {
         params.option.clone(),
         ctx.accounts.signer.key());
 
-        //Emit event
+        
         emit!(OptionBought {
             market: params.market_ix,
             expiry_stamp: params.expiry_stamp,
-            max_potential_payout_in_tokens: max_potential_payout_in_tokens,
+            max_potential_payout_in_tokens: required_collateral,
             quantity: params.quantity,
             strike_price_usd: params.strike_price_usd as u64, //TODO ROUND ERR,
             bought_at_price_usd: asset_price_usd as u64, //TODO ROUND ERR,

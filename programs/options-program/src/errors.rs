@@ -28,4 +28,6 @@ pub enum CustomError {
     InvalidState,
     #[msg("PremiumCalcError")]
     PremiumCalcError,
+    #[msg("InvalidPrices")]
+    InvalidPrices,
 }

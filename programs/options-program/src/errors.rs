@@ -12,6 +12,8 @@ pub enum CustomError {
     DustAmount,
     #[msg("Overflow")]
     Overflow,
+    #[msg("Underflow")]
+    Underflow,
     #[msg("OrdersLimitExceeded")]
     OrdersLimitExceeded,
     #[msg("InvalidExpiry")]

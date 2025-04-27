@@ -14,3 +14,8 @@ or just
 ``` bash
 anchor test
 ```
+
+To run the test suite:
+```bash
+cargo test -- --test-threads=1 --nocapture
+```

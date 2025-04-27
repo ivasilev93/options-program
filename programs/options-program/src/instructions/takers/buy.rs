@@ -202,14 +202,14 @@ impl BuyOption<'_> {
         params.option.clone(),
         ctx.accounts.signer.key());
 
-        
+        //Off-chain proccess could listen for those events and schedule authorized exercise at expiry time on user(taker)'s behalf for convenience...
         emit!(OptionBought {
             market: params.market_ix,
             expiry_stamp: params.expiry_stamp,
             max_potential_payout_in_tokens: required_collateral,
             quantity: params.quantity,
-            strike_price_usd: params.strike_price_usd as u64, //TODO ROUND ERR,
-            bought_at_price_usd: asset_price_usd as u64, //TODO ROUND ERR,
+            strike_price_usd: params.strike_price_usd as u64, //TODO ROUND ERR; tryinto() better approach
+            bought_at_price_usd: asset_price_usd as u64, //TODO ROUND ERR, tryinto() better approach
             option: params.option.clone(),
             user: ctx.accounts.signer.key(),
             option_ix: slot_ix as u8

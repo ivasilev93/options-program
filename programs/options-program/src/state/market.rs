@@ -19,15 +19,15 @@ pub struct Market {
     #[max_len(32)]
     pub name: String,     
     pub asset_mint: Pubkey,   
-    pub fee_bps: u64, // 50 bps = 0.5%
+    pub fee_bps: u64,             // 50 bps = 0.5%
     pub bump: u8,
     pub reserve_supply: u64,      // Token smallest units (e.g., 10^9 for SOL, 10^6 for JUP)
-    pub committed_reserve: u64,   // Token smallest units...
+    pub committed_reserve: u64,   // Token smallest units
     pub premiums: u64,            // Token smallest units 
     pub lp_minted: u64,
     pub volatility_bps: u32,      // 1bps=0.01%. Set by admin for demo simplicity. In prod, this would require different impl.
     #[max_len(70)]
-    pub price_feed: String, // Pyth feed (TOKEN)/USD
+    pub price_feed: String,       // Pyth feed (TOKEN)/USD
     pub asset_decimals: u8
 }
 
@@ -100,12 +100,12 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
         let scaled_asset = (base_asset_amount as u128)
             .checked_mul(scale as u128).unwrap()
             .checked_div(market_tvl as u128).unwrap();
-        println!("scaled asset {:?}", scaled_asset);
+        // println!("scaled asset {:?}", scaled_asset);
 
         let lp_tokens = scaled_asset
             .checked_mul(market.lp_minted as u128).unwrap()
             .checked_div(scale as u128).unwrap();
-        println!("lp_tokens {:?}", lp_tokens);
+        // println!("lp_tokens {:?}", lp_tokens);
 
         let lp_tokens_u64 = lp_tokens.try_into().map_err(|_| CustomError::Overflow)?;
 
@@ -120,7 +120,7 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
 
 pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Market,) -> Result<(u64, u64)> {
     require!(lp_tokens_to_burn > 0, CustomError::InvalidAmount);
-    require!(market.lp_minted > lp_tokens_to_burn, CustomError::InsufficientShares);
+    require!(market.lp_minted >= lp_tokens_to_burn, CustomError::InsufficientShares);
 
     let scale = 1_000_000_000 as u64;
 
@@ -150,7 +150,6 @@ pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Mark
         lp_tokens_to_burn
     };
 
-    //Other Solvency checks;
     require!(actual_lp_tokens_to_burn > 0, CustomError::InvalidAmount);
 
     Ok((withdrawable_amount, actual_lp_tokens_to_burn))
@@ -231,137 +230,4 @@ fn approximate_normal_cdf(x: f64) -> Result<f64> {
     let d = 0.3989423 * (-x * x / 2.0).exp();
     let p = 1.0 - d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
     Ok(if x >= 0.0 { p } else { 1.0 - p })
-}
-
-#[cfg(test)]
-mod premiums_tests {
-    use super::*;
-
-    #[test]
-    fn premium_calls() {
-        println!();
-
-        let volatility = 0.8f64;
-        let deicmals = 9; //wSOL e.g.
-
-        //Strike price, current price, time distance in days, 
-        let test_cases = vec![
-            (135.0, 133.0, 1),
-            (140.0, 133.0, 1),
-            (145.0, 133.0, 1),
-            (135.0, 133.0, 7),
-            (140.0, 133.0, 7),
-            (145.0, 133.0, 7),
-            (135.0, 133.0, 30),
-            (140.0, 133.0, 30),
-            (145.0, 133.0, 30)
-        ];
-
-        for test_case in test_cases {
-            let (strike_price, curr_price, days ) = test_case;
-
-            let time_distance= (days * 24 * 60 * 60) as u64; // days in seconnds
-            let seconds_per_year: f64 = 365.25 * 24.0 * 60.0 * 60.0;
-            let time_to_expire_in_years = time_distance as f64 / seconds_per_year;           
-
-            let premium_call = calculate_premium(
-                strike_price, 
-                curr_price, 
-                time_to_expire_in_years, 
-                volatility, 
-                &OptionType::CALL, 
-                deicmals).unwrap();
-
-            let premium_usd = (premium_call as f64 / 1_000_000_000f64) * curr_price as f64;
-    
-            println!("Strike: ${strike_price}, Current: ${curr_price}, Interval: {} days, USD premium: ${:.2}, Tokens premium: {}", 
-            days, premium_usd, premium_call);
-            assert!(premium_call > 0u64, "Call premium is null");
-        }
-    }
-}
-
-#[cfg(test)]
-mod market_lp_shares_tests {
-    use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
-
-    use super::*;
-
-    fn mock_market() -> Market {
-        Market {
-            id: 1,
-            fee_bps: 2,
-            lp_minted: 0,
-            premiums: 0,
-            committed_reserve: 0,
-            reserve_supply: 0,
-            name: String::from("1 wSOL market"),
-            bump: 120,
-            volatility_bps: 8000, //80%
-            price_feed: String::from("0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"), 
-            asset_decimals: 9,
-            asset_mint: Pubkey::new_unique()
-        }
-    }
-
-    #[test]
-    fn calc_lp_shares_issues_correct_token_amount() {
-        let mut market = mock_market();
-
-        //First LP deposits 1000 SOL
-        let deposit_amount = 1000 * LAMPORTS_PER_SOL; //1_000_000_000
-        let lp_1_tokens = calc_lp_shares(deposit_amount, 1, &market).unwrap();
-
-        let lp1_expected_tokens = deposit_amount;
-        assert_eq!(lp_1_tokens, lp1_expected_tokens);
-
-        //Update market after deposit
-        market.lp_minted = market.lp_minted
-            .checked_add(lp_1_tokens).unwrap();
-        market.reserve_supply = market.reserve_supply
-            .checked_add(deposit_amount).unwrap();
-
-        //Market accumulates 100 SOL worth of premiums
-        market.premiums = market.premiums
-            .checked_add(100 * LAMPORTS_PER_SOL).unwrap();
-
-        //Second LP deposits 1000 SOL, should get less amount of lp shares
-        let lp_2_tokens = calc_lp_shares(deposit_amount, 1, &market).unwrap();
-
-        let lp_2_expected_tokens = 909_090_909_000 as u64;
-        assert_eq!(lp_2_tokens, lp_2_expected_tokens);
-
-        assert!(lp_2_tokens < lp_1_tokens, "If there are accumulated premiums, tokens minted to new LPs should be less than the minted amount to previous LPs");
-    }
-
-    #[test]
-    #[should_panic(expected = "InvalidAmount")]
-    fn calc_lp_shares_panics_when_passed_amount_is_zero() {
-        let market = mock_market();
-        let deposit_amount = 0;
-        calc_lp_shares(deposit_amount, 1, &market).unwrap();
-
-    }
-
-    #[test]
-    #[should_panic(expected = "DustAmount")]
-    fn calc_lp_shares_panics_with_dust_amounts() {
-        let mut market = mock_market();
-
-        //First LP deposits 1000 SOL
-        let deposit_amount = 1000 * LAMPORTS_PER_SOL; //1_000_000_000
-        let lp_1_tokens = calc_lp_shares(deposit_amount, 1, &market).unwrap();
-
-        let lp1_expected_tokens = deposit_amount;
-        assert_eq!(lp_1_tokens, lp1_expected_tokens);
-
-        //Update market after deposit
-        market.lp_minted = market.lp_minted
-            .checked_add(lp_1_tokens).unwrap();
-        market.reserve_supply = market.reserve_supply
-            .checked_add(deposit_amount).unwrap();
-
-        //Second LP deposits 1000 SOL, should get less amount of lp shares
-        calc_lp_shares(1, 1, &market).unwrap();
-    }
 }

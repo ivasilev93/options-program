@@ -23,8 +23,6 @@ pub struct AccountCreate<'info> {
 
 impl AccountCreate<'_> {
     pub fn handle(_ctx: Context<AccountCreate>) -> Result<()> {
-        //TODO: init?
-
         Ok(())
     }
 }

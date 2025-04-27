@@ -21,7 +21,10 @@ pub mod options_program {
     pub fn create_market(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16, price_feed: String, volatility_bps: u32) -> Result<()> {
         CreateMarket::handle(ctx, fee, name, ix, price_feed, volatility_bps)
     }
-    //Exercise option ? by cron
+    
+    //TODO:
+    //Allow admin to withdraw protocol fees
+    //Expose instruction for authorized off-chain cron to exercise options on taker's behalf for convenience 
 
     //Takers (Option buyers)
     pub fn create_account(ctx: Context<AccountCreate>) -> Result<()> {
@@ -43,9 +46,4 @@ pub mod options_program {
     pub fn market_withdraw(ctx: Context<MarketWithdraw>, params: WithdrawParams) -> Result<()> {
         MarketWithdraw::handle(ctx, params)
     }
-
-   
-
-
-    
 }

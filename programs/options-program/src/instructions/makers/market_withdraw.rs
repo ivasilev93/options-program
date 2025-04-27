@@ -78,7 +78,7 @@ impl MarketWithdraw<'_> {
         let market = &mut ctx.accounts.market;
 
         let (withdraw_amount, lp_tokens_to_burn) = calc_withdraw_amount_from_lp_shares(params.lp_tokens_to_burn, &market)?;
-        require!(params.min_amount_out >= withdraw_amount, CustomError::SlippageExceeded);
+        require!(withdraw_amount >= params.min_amount_out, CustomError::SlippageExceeded);
 
         let market_tvl = market.reserve_supply.checked_add(market.premiums).unwrap();
         let uncomitted_reserve = market.reserve_supply.checked_sub(market.committed_reserve).unwrap();

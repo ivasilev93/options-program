@@ -77,7 +77,7 @@ impl ExerciseOption<'_> {
 
         //Get asset price from oracle in usd, scaled by 10^6 (Pyth)
         let price_update = &mut ctx.accounts.price_update;
-        let maximum_age: u64 = 100* 60;
+        let maximum_age: u64 = 100* 60; 
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
 

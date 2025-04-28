@@ -114,12 +114,12 @@ pub struct OptionOrder {
 - Takers can exercise options at expiry, receiving payouts based on the asset's price (via Pyth oracle) and the option's strike price.
 
 ## To build and test
-### In constants.rs file set the admin key to your local wallet public key:
+In constants.rs file set the admin key to your local wallet public key:
 ```rust
 //the public key of your local wallet
 pub const ADMIN_KEY: &str = "FARXLJJbSwZyELTe8TXihES7o26B2d5NKkvCkETP7Gnz"; 
 ```
-### or comment the constraint in market_create.rs like:
+or comment the constraint in market_create.rs like:
 ```rust
 #[account(
         mut,

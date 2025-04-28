@@ -119,7 +119,7 @@ pub struct OptionOrder {
 //the public key of your local wallet
 pub const ADMIN_KEY: &str = "FARXLJJbSwZyELTe8TXihES7o26B2d5NKkvCkETP7Gnz"; 
 ```
-or comment the constraint in market_create.rs like:
+### or comment the constraint in market_create.rs like:
 ```rust
 #[account(
         mut,

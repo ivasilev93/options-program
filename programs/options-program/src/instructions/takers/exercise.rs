@@ -1,5 +1,4 @@
-use core::cmp::{max, min};
-
+use core::cmp::min;
 use crate::common::OptionType;
 use crate::constants::EXERCISE_INTERVAL_TOLERANCE;
 use crate::constants::STRIKE_PRICE_DECIMALS;
@@ -11,11 +10,14 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ self, Mint, TokenAccount, TokenInterface, TransferChecked };
 use pyth_solana_receiver_sdk::price_update::*;
 
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct ExerciseOptionParams {
+    pub market_ix: u16,
+    pub option_id: u8
+}
+
 #[derive(Accounts)]
-#[instruction(
-    market_ix: u16,
-    option_id: u8
-)]
+#[instruction(params: ExerciseOptionParams)]
 pub struct ExerciseOption<'info> {
 
     #[account(mut)]
@@ -42,7 +44,7 @@ pub struct ExerciseOption<'info> {
         mut,
         seeds = [
             MARKET_SEED.as_bytes(),
-            market_ix.to_le_bytes().as_ref()
+            params.market_ix.to_le_bytes().as_ref()
         ],
         bump,
     )]
@@ -52,7 +54,7 @@ pub struct ExerciseOption<'info> {
         mut,
         seeds = [
             MARKET_VAULT_SEED.as_bytes(),
-            market_ix.to_le_bytes().as_ref()
+            params.market_ix.to_le_bytes().as_ref()
         ],
         bump,
     )]
@@ -77,6 +79,7 @@ impl ExerciseOption<'_> {
 
         //Get asset price from oracle in usd, scaled by 10^6 (Pyth)
         let price_update = &mut ctx.accounts.price_update;
+        // Using increased, suboptimal, maximum age, because we are working with cloned pyth account w stale updated price 
         let maximum_age: u64 = 100* 60; 
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
@@ -102,7 +105,7 @@ impl ExerciseOption<'_> {
             }
         };
 
-        // If profit > 0 transfer tokens equivalent from vault
+        // If profitable, transfer token equivalent from vault
         if profit_usd > 0 {
             let token_scaling = 10_u64.pow(market.asset_decimals as u32);
 

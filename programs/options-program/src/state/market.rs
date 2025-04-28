@@ -1,10 +1,7 @@
 use core::{cmp::min};
 use anchor_lang::prelude::*;
-use pyth_solana_receiver_sdk::price_update::Price;
 
-use crate::{common::OptionType, constants::*, errors::CustomError, instructions::takers::buy::BuyOptionParams};
-
-use super::user_account::OptionOrder;
+use crate::{common::OptionType, constants::*, errors::CustomError };
 
 pub const MARKET_SEED: &str = "market";
 pub const MARKET_VAULT_SEED: &str = "market_vault";
@@ -86,6 +83,16 @@ pub fn calculate_required_collateral(
     Ok(required_collateral_tokens as u64)
 }
 
+/// Calculates the amount of LP tokens to mint when adding liquidity to the market.
+/// LP tokens to mint are calculated as a proportion of existing LP tokens based on the deposit's share of total market value.
+/// 
+/// @param base_asset_amount - Amount of base asset being deposited
+/// 
+/// @param min_amount_out - Minimum LP tokens expected to receive (slippage protection)
+/// 
+/// @param market - Reference to the market where liquidity is being added
+/// 
+/// @returns Result<u64> - Amount of LP tokens to mint on success, scaled in base units, or error
 pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Market) -> Result<u64> {
     require!(base_asset_amount > 0, CustomError::InvalidAmount);
     require!(min_amount_out > 0, CustomError::InvalidAmount);
@@ -118,6 +125,9 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
     Ok(lp_tokens_to_mint)
 }
 
+/// Calculates the amount of base assets to withdraw based on LP tokens being burned, 
+/// accounting for the proportion of total liquidity owned and ensuring withdrawal amounts 
+/// don't exceed available uncommitted reserves.
 pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Market,) -> Result<(u64, u64)> {
     require!(lp_tokens_to_burn > 0, CustomError::InvalidAmount);
     require!(market.lp_minted >= lp_tokens_to_burn, CustomError::InsufficientShares);
@@ -155,12 +165,13 @@ pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Mark
     Ok((withdrawable_amount, actual_lp_tokens_to_burn))
 }
 
-///Calculates premium for a given market (asset), based on provided data 
-///  #Arguments
-///  * 'strike_price_usd' - strike price in usd
-///  * 'spot_price_usd' - spot price in usd 
+/// Calculates premium for a given market (asset), based on provided data. Risk free rate is assumed to be 0 for simplicity.    
 /// 
-/// #Returns
+/// @param strike_price_usd - strike price in usd
+/// 
+/// @param spot_price_usd - spot price in usd 
+/// 
+/// @Returns
 /// The premium amount in token units (scaled by the asset decimals)
 pub fn calculate_premium(
     strike_price_usd: f64,
@@ -170,25 +181,6 @@ pub fn calculate_premium(
     option_type: &OptionType,
     asset_decimals: u8
 ) -> Result<u64> {
-
-    println!("{} {} {} {} {:?} {}", 
-    strike_price_usd,
-    spot_price_usd,
-    time_to_expity,
-    volatility,
-    option_type,
-    asset_decimals
-    );
-
-    msg!("{} {} {} {} {:?} {}", 
-    strike_price_usd,
-    spot_price_usd,
-    time_to_expity,
-    volatility,
-    option_type,
-    asset_decimals
-    );
-
     // Convert to f64 for calculations, adjusting for scale
     let s = spot_price_usd as f64;
     let k = strike_price_usd as f64;

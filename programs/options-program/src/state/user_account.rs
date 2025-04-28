@@ -13,7 +13,7 @@ pub struct UserAccount {
 #[zero_copy]
 #[repr(C)]
 pub struct OptionOrder {
-    pub strike_price: u64,//scaled by 10^6
+    pub strike_price: u64,  //scaled by 10^6
     pub expiry: i64,
     pub premium: u64,
     pub quantity: u64,
@@ -21,14 +21,13 @@ pub struct OptionOrder {
     pub market_ix: u16,
     pub option_type: u8,
     pub ix: u8,
-    pub padding: [u8; 4]
+    pub is_used: u8,
+    pub padding: [u8; 3]
 }
 
 impl OptionOrder {
     pub fn is_initialized(&self) -> bool {
-        self.expiry != 0 &&
-        self.premium != 0 && 
-        self.strike_price != 0
+        self.is_used == 1        
     }
 
     pub fn clear(&mut self) {
@@ -40,6 +39,7 @@ impl OptionOrder {
         self.quantity = 0;
         self.max_potential_payout_in_tokens = 0;
         self.ix = 0;
+        self.is_used = 0;
     }
 }
 

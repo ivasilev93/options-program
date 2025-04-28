@@ -1,13 +1,13 @@
 use anchor_lang::prelude::*;
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 use anchor_spl::token_interface::{self, *};
-use crate::{common::{calc_time_distance, OptionType}, constants::{BASIS_POINTS_DENOMINATOR, CALL_MULTIPLIER, STRIKE_PRICE_DECIMALS}, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
+use crate::{common::{calc_time_distance, OptionType}, constants::*, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct BuyOptionParams {
     pub market_ix: u16,
     pub option: OptionType,
-    pub strike_price_usd: u64, //strike price in usd e.g. 120_000_000 for $120.00; 10^6
+    pub strike_price_usd: u64,      //strike price in usd e.g. 120_000_000 for $120.00; 10^6
     pub expiry_stamp: i64,
     pub quantity: u64
 }
@@ -85,11 +85,11 @@ impl BuyOption<'_> {
 
         //Get asset price from oracle in usd, scaled by 10^6 (Pyth)
         let price_update = &mut ctx.accounts.price_update;
-        // let maximum_age: u64 = 60;
+        // Using increased, suboptimal, maximum age, because we are working with cloned pyth account w stale updated price 
         let maximum_age: u64 = 100 * 60;
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&clock, maximum_age, &feed_id)?;
-        let pyth_decimals = price.exponent.abs() as u32; //as u because it comes negative (-8)
+        let pyth_decimals = price.exponent.abs() as u32; //as u because it comes negative (-X)
         let curr_price = price.price as u128;
 
         let scaled_strike_price = if pyth_decimals >= STRIKE_PRICE_DECIMALS {
@@ -109,13 +109,13 @@ impl BuyOption<'_> {
         let available_collateral = market.reserve_supply - market.committed_reserve;
         require!(available_collateral > required_collateral, CustomError::InsufficientColateral);        
 
-        //Calculate premium
+        //Prepare premium calc params
         let strike_price_usd = params.strike_price_usd as f64 / 10_f64.powi(STRIKE_PRICE_DECIMALS as i32);
         let volatility = market.volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64; // Not optimal solution. Just for demo simplicity.
-        let asset_price_usd = (price.price as f64) * 10.0f64.powi(price.exponent);
+        let asset_price_usd = (price.price as f64) * 10.0f64.powi(price.exponent);  //In human readable form (price.exponent is -8)
         let time_to_expire_in_years = calc_time_distance(&clock, params.expiry_stamp).unwrap();
         
-        //Premium amount is returned in tokens from calculate_premium
+        //Calc premium. Premium amount is returned in tokens
         let single_premium_amount = calculate_premium(
             strike_price_usd,
             asset_price_usd,
@@ -176,7 +176,8 @@ impl BuyOption<'_> {
             market_ix: params.market_ix,
             option_type: u8::from(params.option),
             ix: slot_ix as u8,
-            padding: [0_u8; 4]
+            is_used: 1,
+            padding: [0_u8; 3]
         };
 
         msg!("Option has been bought: 

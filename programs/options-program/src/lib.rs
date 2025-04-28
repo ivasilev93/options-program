@@ -17,29 +17,26 @@ declare_id!("Be2AgTUf5uVfdHaSXPpzifVkmwfkgRwtLToVywevfvrS");
 pub mod options_program {
     use super::*;
 
-    //Admin
-    pub fn create_market(ctx: Context<CreateMarket>, fee: u64, name: String, ix: u16, price_feed: String, volatility_bps: u32) -> Result<()> {
-        CreateMarket::handle(ctx, fee, name, ix, price_feed, volatility_bps)
-    }
-    
+    // --- Admin --- ///
+    pub fn create_market(ctx: Context<CreateMarket>, params: CreateMarketParams) -> Result<()> {
+        CreateMarket::handle(ctx, params)
+    }    
     //TODO:
-    //Allow admin to withdraw protocol fees
+    //Allow admin to withdraw protocol fees    
     //Expose instruction for authorized off-chain cron to exercise options on taker's behalf for convenience 
 
-    //Takers (Option buyers)
+    // --- Takers (Option buyers) --- //
     pub fn create_account(ctx: Context<AccountCreate>) -> Result<()> {
         AccountCreate::handle(ctx)
     }
-
     pub fn buy(ctx: Context<BuyOption>, params: BuyOptionParams) -> Result<()> {
         BuyOption::handle(ctx, params)
     }
-
-    pub fn exercise(ctx: Context<ExerciseOption>, market_ix: u16, option_id: u8) -> Result<()> {
-        ExerciseOption::handle(ctx, market_ix, option_id)
+    pub fn exercise(ctx: Context<ExerciseOption>, params: ExerciseOptionParams) -> Result<()> {
+        ExerciseOption::handle(ctx, params.market_ix, params.option_id)
     }
 
-    //Liquidity providers (LPs)
+    // --- Liquidity providers (LPs) --- //
     pub fn market_deposit(ctx: Context<MarketDeposit>, params: DepositIx) -> Result<()> {
         MarketDeposit::handle(ctx, params.amount, params.min_amount_out, params.ix)
     }

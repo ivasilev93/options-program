@@ -80,9 +80,9 @@ mod market_issue_lp_shares_tests {
         
         //Alice deposits 1000 SOL
         let alice_lp_tokens = calc_lp_shares(deposit_amount, 1, &market).unwrap();
-        let alice_expected_lp_tokens = deposit_amount;
+        let alice_expected_lp_tokens = deposit_amount * 1000;
         assert_eq!(alice_lp_tokens, alice_expected_lp_tokens);
-        println!("Alice deposits: asset_tokens: {}, lp minted: {}. 1 to 1 ratio", deposit_amount, alice_lp_tokens);
+        println!("Alice deposits: asset_tokens: {}, lp minted: {}. 1 to 1000 ratio", deposit_amount, alice_lp_tokens);
         
         //Update market after deposit
         market.lp_minted = market.lp_minted
@@ -101,7 +101,7 @@ mod market_issue_lp_shares_tests {
         let bob_lp_tokens = calc_lp_shares(deposit_amount, 1, &market).unwrap();
         println!("Bob deposits: asset_tokens: {}, lp minted: {}", deposit_amount, bob_lp_tokens);
 
-        let bob_expected_lp_tokens = 909_090_909_000 as u64;
+        let bob_expected_lp_tokens = 909_090_909_000_000 as u64;
         assert_eq!(bob_lp_tokens, bob_expected_lp_tokens);
 
         //If there are accumulated premiums, tokens minted to new LPs should be less than the minted amount to previous LPs
@@ -134,7 +134,7 @@ mod market_issue_lp_shares_tests {
         let (bob_received_asset_tokens, burned_shares) = calc_withdraw_amount_from_lp_shares(bob_expected_lp_tokens, &market).unwrap();
         println!("Bob burns lp: {}, asset_token share: {}, burned lp: {}", bob_expected_lp_tokens, bob_received_asset_tokens, burned_shares);
         assert!(bob_received_asset_tokens > deposit_amount, "Bob Incorrect withdraw amount"); 
-
+        println!("Total received asset share: {}", alice_received_asset_tokens + bob_received_asset_tokens);
         
     }
 

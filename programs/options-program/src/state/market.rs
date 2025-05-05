@@ -100,7 +100,7 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
     let market_tvl = market.premiums.checked_add(market.reserve_supply).unwrap();
 
     let lp_tokens_to_mint = if market.lp_minted == 0 {
-        base_asset_amount
+        base_asset_amount * 1_000
     } else {
         let scale = 1_000_000_000 as u64;
 
@@ -145,11 +145,11 @@ pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Mark
         .checked_mul(market_tvl as u128).unwrap()
         .checked_div(scale as u128).unwrap() as u64;
 
+    //Check if amount to be withdraw is not as collateral to unexercised options
     let uncomitted_reserve = market.reserve_supply.checked_sub(market.committed_reserve).unwrap();
     let max_withdrawable = uncomitted_reserve.checked_add(market.premiums).unwrap();   
     let withdrawable_amount = min(max_withdrawable, potential_withdraw_amount);
-
-    require!(withdrawable_amount >= 1, CustomError::DustAmount);
+    require!(withdrawable_amount >= 1, CustomError::CannotWithdraw);
 
     let actual_lp_tokens_to_burn = if withdrawable_amount < potential_withdraw_amount {
         ((withdrawable_amount as u128)
@@ -161,6 +161,9 @@ pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Mark
     };
 
     require!(actual_lp_tokens_to_burn > 0, CustomError::InvalidAmount);
+
+    msg!("Requested tokens to burn: {}, max withdrawable: {}, actual tokens to burn: {}",
+        lp_tokens_to_burn, withdrawable_amount, actual_lp_tokens_to_burn);
 
     Ok((withdrawable_amount, actual_lp_tokens_to_burn))
 }

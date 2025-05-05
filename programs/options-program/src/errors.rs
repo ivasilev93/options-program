@@ -32,4 +32,6 @@ pub enum CustomError {
     PremiumCalcError,
     #[msg("InvalidPrices")]
     InvalidPrices,
+    #[msg("Cannot withdraw. Funds are collateral to active options")]
+    CannotWithdraw,
 }

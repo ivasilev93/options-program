@@ -144,6 +144,7 @@ cargo test -- --test-threads=1 --nocapture
 Run separate validator, cloning the pyth SOL/USD feed
 ``` bash
 solana-test-validator --bind-address 0.0.0.0 --url https://api.mainnet-beta.solana.com --ledger .anchor/test-ledger --rpc-port 8899 --clone 7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE --reset
+anchor deploy
 ```
 
 ```bash

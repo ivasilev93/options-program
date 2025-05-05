@@ -203,7 +203,7 @@ describe("options-program test suite", async () => {
       //Initial LP tokens should be equal to deposit amount
       const aliceLpBalance = await provider.connection.getTokenAccountBalance(alice_lp_token_acc);
       console.log('Alice LP acc balance: ', aliceLpBalance.value);
-      assert.equal(Number(aliceLpBalance.value.amount), DEPOSIT_AMOUNT, "Initial LP tokens should be equal to deposit amount");    
+      assert.equal(Number(aliceLpBalance.value.amount), DEPOSIT_AMOUNT * 1000, "Initial LP tokens should be 1000 more than deposit amount");    
 
       const marketVaultBalance = await provider.connection.getTokenAccountBalance(marketVaultPDA);
       assert.equal(DEPOSIT_AMOUNT, Number(marketVaultBalance.value.amount), "Market balance should be equal to deposit amount");    
@@ -427,16 +427,18 @@ describe("options-program test suite", async () => {
   })
 
   it("Depositors (Bob and Alice) withdraw", async () => {
-    const aliceLpBalance = await provider.connection.getTokenAccountBalance(alice_lp_token_acc);
-    const aliceLpTokenAmount = new anchor.BN(aliceLpBalance.value.amount);
-    const bobLpBalance = await provider.connection.getTokenAccountBalance(bob_lp_token_acc);
-    const bobLpTokenAmount = new anchor.BN(bobLpBalance.value.amount);
+    let market = await program.account.market.fetch(marketPDA);
 
     //Alice withdraws
+    const aliceLpBalance = await provider.connection.getTokenAccountBalance(alice_lp_token_acc);
+    const aliceLpTokenAmount = new anchor.BN(aliceLpBalance.value.amount);
+    const estAliceWithdrawAmnt = calcWithdrawAmountFromLpShares(
+      aliceLpTokenAmount, market.lpMinted, market.premiums, market.reserveSupply, market.committedReserve);
+
     await program.methods.marketWithdraw({
       ix: marketIx,
       lpTokensToBurn: aliceLpTokenAmount,
-      minAmountOut: aliceLpTokenAmount,
+      minAmountOut: estAliceWithdrawAmnt.withdrawableAmount,
     }).accountsStrict({
       signer: alice.publicKey,
       userAssetAta: alice_wsol_acc,
@@ -452,10 +454,16 @@ describe("options-program test suite", async () => {
     .signers([alice]).rpc();
 
     //Bob withdraws
+    market = await program.account.market.fetch(marketPDA);
+    const bobLpBalance = await provider.connection.getTokenAccountBalance(bob_lp_token_acc);
+    const bobLpTokenAmount = new anchor.BN(bobLpBalance.value.amount);
+    const aliceMinTokenAmount = calcWithdrawAmountFromLpShares(
+      bobLpTokenAmount, market.lpMinted, market.premiums, market.reserveSupply, market.committedReserve);
+
     await program.methods.marketWithdraw({
       ix: marketIx,
       lpTokensToBurn: bobLpTokenAmount,
-      minAmountOut: bobLpTokenAmount,
+      minAmountOut:  aliceMinTokenAmount.withdrawableAmount,
     }).accountsStrict({
       signer: bob.publicKey,
       userAssetAta: bob_wsol_acc,
@@ -537,4 +545,50 @@ async function wrapwSolAccounts(
   }));
 
   return wsolAccs;
+}
+
+function calcWithdrawAmountFromLpShares(
+  lpTokensToBurn: anchor.BN,
+  lpMinted: anchor.BN,
+  premiums: anchor.BN,
+  reserveSupply: anchor.BN,
+  committedReserve: anchor.BN,
+  
+) {
+  if (lpTokensToBurn <= new anchor.BN(0)) throw new Error("InvalidAmount");
+
+  if (lpMinted < lpTokensToBurn) {
+    throw new Error("InsufficientShares");
+  }
+
+  const SCALE = new anchor.BN(1000000000);
+
+  // % ownership = lp_to_burn / lp_total
+  const ownershipRatio = lpTokensToBurn.mul(SCALE).div(lpMinted);
+
+  const marketTVL = reserveSupply.add(premiums);
+  if (marketTVL <= new anchor.BN(0)) throw new Error("InvalidState");
+
+  // expected proportional withdrawal
+  const potentialWithdrawAmount = ownershipRatio.mul(marketTVL).div(SCALE);
+
+  const uncommittedReserve = reserveSupply.sub(committedReserve);
+  const maxWithdrawable = uncommittedReserve.add(premiums);
+
+  const withdrawableAmount = potentialWithdrawAmount <= maxWithdrawable
+    ? potentialWithdrawAmount
+    : maxWithdrawable;
+
+  if (withdrawableAmount < new anchor.BN(1)) throw new Error("CannotWithdraw");
+
+  const actualLpTokensToBurn = withdrawableAmount < potentialWithdrawAmount
+    ? withdrawableAmount.mul(lpMinted).div(marketTVL)
+    : lpTokensToBurn;
+
+  if (actualLpTokensToBurn <= new anchor.BN(0)) throw new Error("InvalidAmount");
+
+  return {
+    withdrawableAmount,
+    actualLpTokensToBurn,
+  };
 }

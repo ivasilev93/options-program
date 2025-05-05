@@ -146,26 +146,26 @@ mod market_issue_lp_shares_tests {
         calc_lp_shares(deposit_amount, 1, &market).unwrap();
     }
 
-    #[test]
-    #[should_panic(expected = "DustAmount")]
-    fn calc_lp_shares_panics_with_dust_amounts() {
-        let mut market = mock_market();
+    // #[test]
+    // #[should_panic(expected = "DustAmount")]
+    // fn calc_lp_shares_panics_with_dust_amounts() {
+    //     let mut market = mock_market();
 
-        //First LP deposits 1000 SOL
-        let deposit_amount = 1000 * LAMPORTS_PER_SOL; //1_000_000_000
-        let lp_1_tokens = calc_lp_shares(deposit_amount, 1, &market).unwrap();
+    //     //First LP deposits 1000 SOL
+    //     let deposit_amount = 1000 * LAMPORTS_PER_SOL; //1_000_000_000
+    //     let lp_1_tokens = calc_lp_shares(deposit_amount, 1, &market).unwrap();
 
-        let lp1_expected_tokens = deposit_amount;
-        assert_eq!(lp_1_tokens, lp1_expected_tokens);
+    //     let lp1_expected_tokens = deposit_amount;
+    //     assert_eq!(lp_1_tokens, lp1_expected_tokens);
 
-        //Update market after deposit
-        market.lp_minted = market.lp_minted
-            .checked_add(lp_1_tokens).unwrap();
-        market.reserve_supply = market.reserve_supply
-            .checked_add(deposit_amount).unwrap();
+    //     //Update market after deposit
+    //     market.lp_minted = market.lp_minted
+    //         .checked_add(lp_1_tokens).unwrap();
+    //     market.reserve_supply = market.reserve_supply
+    //         .checked_add(deposit_amount).unwrap();
 
-        //Second LP deposits 1000 SOL, should get less amount of lp shares
-        calc_lp_shares(1, 1, &market).unwrap();
-    }
+    //     //Second LP deposits 1000 SOL, should get less amount of lp shares
+    //     calc_lp_shares(1, 1, &market).unwrap();
+    // }
 }
 

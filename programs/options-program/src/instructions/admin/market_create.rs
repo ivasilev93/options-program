@@ -11,7 +11,11 @@ pub struct CreateMarketParams {
     pub name: String, 
     pub ix: u16, 
     pub price_feed: String, 
-    pub volatility_bps: u32
+    pub hour1_volatility_bps: u32,
+    pub hour4_volatility_bps: u32,
+    pub day1_volatility_bps: u32,
+    pub day3_volatility_bps: u32,
+    pub week_volatility_bps: u32
 }
 
 #[derive(Accounts)]
@@ -96,7 +100,12 @@ impl CreateMarket<'_> {
         market.bump = ctx.bumps.market;
         market.price_feed = params.price_feed;
         market.asset_decimals = asset_mint.decimals;
-        market.volatility_bps = params.volatility_bps;
+        market.hour1_volatility_bps = params.hour1_volatility_bps;
+        market.hour4_volatility_bps = params.hour4_volatility_bps;
+        market.day1_volatility_bps = params.day1_volatility_bps;
+        market.day3_volatility_bps = params.day3_volatility_bps;
+        market.week_volatility_bps = params.week_volatility_bps;
+        market.vol_last_updated = 0;
         market.asset_mint = asset_mint.key();
 
         msg!("Market seeds: {:?} {:?}", MARKET_SEED.as_bytes(), params.ix.to_le_bytes());

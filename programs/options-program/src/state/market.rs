@@ -1,7 +1,7 @@
 use core::{cmp::min};
 use anchor_lang::prelude::*;
 
-use crate::{common::OptionType, constants::*, errors::CustomError };
+use crate::{common::{Expiry, OptionType}, constants::*, errors::CustomError };
 
 pub const MARKET_SEED: &str = "market";
 pub const MARKET_VAULT_SEED: &str = "market_vault";
@@ -11,7 +11,6 @@ pub const MARKET_LP_MINT_SEED: &str = "market_lp_mint";
 #[account]
 #[derive(InitSpace, PartialEq, Eq)]
 pub struct Market {
-
     pub id: u16,
     #[max_len(32)]
     pub name: String,     
@@ -22,10 +21,44 @@ pub struct Market {
     pub committed_reserve: u64,   // Token smallest units
     pub premiums: u64,            // Token smallest units 
     pub lp_minted: u64,
-    pub volatility_bps: u32,      // 1bps=0.01%. Set by admin for demo simplicity. In prod, this would require different impl.
     #[max_len(70)]
     pub price_feed: String,       // Pyth feed (TOKEN)/USD
-    pub asset_decimals: u8
+    pub asset_decimals: u8,
+    pub hour1_volatility_bps: u32,      // 1bps = 0.01%
+    pub hour4_volatility_bps: u32,  
+    pub day1_volatility_bps: u32,  
+    pub day3_volatility_bps: u32,  
+    pub week_volatility_bps: u32,
+    pub vol_last_updated: i64  
+}
+
+impl Market {
+    pub fn get_volatility(&self, expiry_setting: &Expiry, stamp_now: i64) -> (f64, i64) {
+
+        //Expiry to be measured as distance in seconds
+        match expiry_setting {
+            Expiry::HOUR1 => {
+                let distasnce = 60 * 60;
+                (self.hour1_volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64, stamp_now + distasnce)
+            },
+            Expiry::HOUR4 => {
+                let distasnce = 4 * 60 * 60;
+                (self.hour4_volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64, stamp_now + distasnce)
+            },
+            Expiry::DAY1 => {
+                let distasnce = 24 * 60 * 60;
+                (self.day1_volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64, stamp_now + distasnce)
+            },
+            Expiry::DAY3 => {
+                let distasnce = 3 * 24 * 60 * 60;
+                (self.day3_volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64, stamp_now + distasnce)
+            },
+            Expiry::WEEK => {
+                let distasnce = 7 * 24 * 60 * 60;
+                (self.week_volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64, stamp_now + distasnce)
+            },
+        }
+    }
 }
 
 pub fn calculate_required_collateral(
@@ -168,7 +201,8 @@ pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Mark
     Ok((withdrawable_amount, actual_lp_tokens_to_burn))
 }
 
-/// Calculates premium for a given market (asset), based on provided data. Risk free rate is assumed to be 0 for simplicity.    
+/// Calculates premium for a given market (asset), based on provided data. Risk free rate is assumed to be 0 for simplicity.
+/// More suitable for European style options   
 /// 
 /// @param strike_price_usd - strike price in usd
 /// 

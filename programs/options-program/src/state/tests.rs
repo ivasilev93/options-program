@@ -64,7 +64,12 @@ mod market_issue_lp_shares_tests {
             reserve_supply: 0,
             name: String::from("1 wSOL market"),
             bump: 120,
-            volatility_bps: 8000, //80%
+            hour1_volatility_bps: 10000, //1%,
+            hour4_volatility_bps: 10000, //1%,
+            day1_volatility_bps: 10000, //1%,
+            day3_volatility_bps: 10000, //1%,
+            week_volatility_bps: 10000, //1%,
+            vol_last_updated: 0,
             price_feed: String::from("0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"), 
             asset_decimals: 9,
             asset_mint: Pubkey::new_unique()

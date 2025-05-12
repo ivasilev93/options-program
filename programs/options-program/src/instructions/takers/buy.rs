@@ -1,14 +1,14 @@
 use anchor_lang::prelude::*;
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 use anchor_spl::token_interface::{self, *};
-use crate::{common::{calc_time_distance, OptionType}, constants::*, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
+use crate::{common::{calc_time_distance, Expiry, OptionType}, constants::*, errors::CustomError, state::{event::OptionBought, market::*, user_account::*}};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct BuyOptionParams {
     pub market_ix: u16,
     pub option: OptionType,
     pub strike_price_usd: u64,      //strike price in usd e.g. 120_000_000 for $120.00; 10^6
-    pub expiry_stamp: i64,
+    pub expiry_setting: Expiry,
     pub quantity: u64
 }
 
@@ -110,10 +110,11 @@ impl BuyOption<'_> {
         require!(available_collateral > required_collateral, CustomError::InsufficientColateral);        
 
         //Prepare premium calc params
+        let stamp_now = clock.unix_timestamp;
         let strike_price_usd = params.strike_price_usd as f64 / 10_f64.powi(STRIKE_PRICE_DECIMALS as i32);
-        let volatility = market.volatility_bps as f64 / BASIS_POINTS_DENOMINATOR as f64; // Not optimal solution. Just for demo simplicity.
+        let (volatility, expiry) = market.get_volatility(&params.expiry_setting, stamp_now);
         let asset_price_usd = (price.price as f64) * 10.0f64.powi(price.exponent);  //In human readable form (price.exponent is -8)
-        let time_to_expire_in_years = calc_time_distance(&clock, params.expiry_stamp).unwrap();
+        let time_to_expire_in_years = calc_time_distance(stamp_now, expiry).unwrap();
         
         //Calc premium. Premium amount is returned in tokens
         let single_premium_amount = calculate_premium(
@@ -169,7 +170,7 @@ impl BuyOption<'_> {
         //Save user option
         user_account.options[slot_ix] = OptionOrder {
             strike_price: params.strike_price_usd, //ROUND ERR
-            expiry: params.expiry_stamp,
+            expiry: expiry,
             premium: single_premium_amount,
             quantity: params.quantity,
             max_potential_payout_in_tokens: required_collateral,
@@ -194,7 +195,7 @@ impl BuyOption<'_> {
         ",
         slot_ix,
         params.market_ix,
-        params.expiry_stamp,
+        expiry,
         required_collateral,
         params.quantity,
         single_premium_amount,
@@ -206,7 +207,7 @@ impl BuyOption<'_> {
         //Off-chain proccess could listen for those events and schedule authorized exercise at expiry time on user(taker)'s behalf for convenience...
         emit!(OptionBought {
             market: params.market_ix,
-            expiry_stamp: params.expiry_stamp,
+            expiry_stamp: expiry,
             max_potential_payout_in_tokens: required_collateral,
             quantity: params.quantity,
             strike_price_usd: params.strike_price_usd as u64, //TODO ROUND ERR; tryinto() better approach

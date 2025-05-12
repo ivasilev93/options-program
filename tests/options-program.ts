@@ -115,7 +115,12 @@ describe("options-program test suite", async () => {
         name: 'wSOL market',
         ix: marketIx,
         priceFeed: SOL_USD_PRICE_FEED_ID,
-        volatilityBps:  8000})
+        hour1VolatilityBps: 10000,
+        hour4VolatilityBps: 10000,
+        day1VolatilityBps: 10000,
+        day3VolatilityBps: 10000,
+        weekVolatilityBps: 10000,
+      })
         .accountsStrict({
           market: marketPDA,
           marketVault: marketVaultPDA,
@@ -150,7 +155,12 @@ describe("options-program test suite", async () => {
       name: 'wSOL market',
       ix: marketIx,
       priceFeed: SOL_USD_PRICE_FEED_ID,
-      volatilityBps: 8000}) 
+      hour1VolatilityBps: 60000,
+      hour4VolatilityBps: 70000,
+      day1VolatilityBps: 90000,
+      day3VolatilityBps: 80000,
+      weekVolatilityBps: 50000,
+    }) 
       .accountsStrict({
         market: marketPDA,
         marketVault: marketVaultPDA,
@@ -220,7 +230,11 @@ describe("options-program test suite", async () => {
         committed_reserve: market.committedReserve.toString(),
         premiums: market.premiums.toString(),
         lp_minted: market.lpMinted.toString(),
-        volatility_bps: market.volatilityBps,
+        hour1VolatilityBps: market.hour1VolatilityBps,
+        hour4VolatilityBps: market.hour4VolatilityBps,
+        day1VolatilityBps: market.day1VolatilityBps,
+        day3VolatilityBps: market.day3VolatilityBps,
+        weekVolatilityBps: market.weekVolatilityBps,
         price_feed: market.priceFeed,
         asset_decimals: market.assetDecimals,
       });
@@ -251,7 +265,7 @@ describe("options-program test suite", async () => {
       marketIx: marketIx,
       option: { call: {} },
       quantity: new anchor.BN(2000),
-      expiryStamp: ONE_WEEK_FROM_NOW,
+      expirySetting: { hour4: {}},
       strikePriceUsd: new anchor.BN(140000000)
     }).accountsStrict({
       account: john_taker_accountPda,
@@ -294,7 +308,6 @@ describe("options-program test suite", async () => {
         committed_reserve: market.committedReserve.toString(),
         premiums: market.premiums.toString(),
         lp_minted: market.lpMinted.toString(),
-        volatility_bps: market.volatilityBps,
         price_feed: market.priceFeed,
         asset_decimals: market.assetDecimals,
       });
@@ -377,7 +390,7 @@ describe("options-program test suite", async () => {
       marketIx: marketIx,
       option: { call: {} },
       quantity: new anchor.BN(2000),
-      expiryStamp: ONE_WEEK_FROM_NOW,
+      expirySetting: { day1: {} },
       strikePriceUsd: new anchor.BN(140000000)
     }).accountsStrict({
       account: john_taker_accountPda,
@@ -420,7 +433,7 @@ describe("options-program test suite", async () => {
         committed_reserve: market.committedReserve.toString(),
         premiums: market.premiums.toString(),
         lp_minted: market.lpMinted.toString(),
-        volatility_bps: market.volatilityBps,
+        // volatility_bps: market.volatilityBps,
         price_feed: market.priceFeed,
         asset_decimals: market.assetDecimals,
       });

@@ -34,8 +34,36 @@ impl TryFrom<u8> for OptionType {
     }
 }
 
-pub fn calc_time_distance(clock: &Clock, expiry_stamp: i64) -> Result<f64> {
-    let stamp_now = clock.unix_timestamp;
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug, Copy)]
+pub enum Expiry {
+    HOUR1,
+    HOUR4,
+    DAY1,
+    DAY3,
+    WEEK
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum ExpiryError {
+    InvalidExpirySetting,
+}
+
+impl TryFrom<u8> for Expiry {
+    type Error = ExpiryError;
+
+    fn try_from(value: u8) -> std::result::Result<Expiry, ExpiryError> {
+        match value {
+            0 => Ok(Expiry::HOUR1),
+            1 => Ok(Expiry::HOUR4),
+            2 => Ok(Expiry::DAY1),
+            3 => Ok(Expiry::DAY3),
+            4 => Ok(Expiry::WEEK),
+            _ => Err(ExpiryError::InvalidExpirySetting)
+        }
+    }
+}
+
+pub fn calc_time_distance(stamp_now: i64, expiry_stamp: i64) -> Result<f64> {
     let time_distance = expiry_stamp - stamp_now;
 
     let seconds_in_day: i64 = 86400;

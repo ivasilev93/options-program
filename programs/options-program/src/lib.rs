@@ -6,10 +6,9 @@ mod constants;
 mod instructions;
 mod common;
 
+use instructions::admin::{ market_create:: *, market_update_vol::* };
+use instructions::makers::{ market_deposit::*, market_withdraw::* };
 use instructions::takers::{ acc_create::*, buy::*, exercise::* };
-use instructions::makers::market_deposit::*;
-use instructions::makers::market_withdraw::*;
-use instructions::admin::market_create::*;
 
 declare_id!("Be2AgTUf5uVfdHaSXPpzifVkmwfkgRwtLToVywevfvrS");
 
@@ -20,7 +19,12 @@ pub mod options_program {
     // --- Admin --- ///
     pub fn create_market(ctx: Context<CreateMarket>, params: CreateMarketParams) -> Result<()> {
         CreateMarket::handle(ctx, params)
-    }    
+    }
+
+    pub fn update_market_vol(ctx: Context<UpdateMarketVol>, params: UpdateMarketVolParams) -> Result<()> {
+        UpdateMarketVol::handle(ctx, params)
+    }  
+
     //TODO:
     //Allow admin to withdraw protocol fees    
     //Expose instruction for authorized off-chain cron to exercise options on taker's behalf for convenience 

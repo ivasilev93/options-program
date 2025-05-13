@@ -201,7 +201,7 @@ pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Mark
     Ok((withdrawable_amount, actual_lp_tokens_to_burn))
 }
 
-//TODO: Look into Kamino Lend's handling of fractions w Fraction crate.
+//TODO: Look into Kamino Lend's handling of fractions w Fraction crate - https://docs.rs/fraction/latest/fraction/
 
 /// Calculates premium for a given market (asset), based on provided data. Risk free rate is assumed to be 0 for simplicity.
 /// More suitable for European style options   
@@ -254,7 +254,7 @@ pub fn calculate_premium(
     Ok(premium_scaled)
 }
 
-//TODO: Undeterministic calculation. Look into Kamino Lend's handling of fractions w Fraction crate.
+//TODO: Undeterministic calculation. Look into Kamino Lend's handling of fractions w Fraction crate - https://docs.rs/fraction/latest/fraction/
 fn approximate_normal_cdf(x: f64) -> Result<f64> {
      // Simple approximation for N(x) (for demo)
     // Replace with a lookup table or better polynomial in production

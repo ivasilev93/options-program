@@ -34,7 +34,7 @@ describe("options-program test suite", async () => {
 
   // --- TEST CONSTANTS --- //
   const SOL_USD_PRICE_FEED_ID = '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d';
-  const marketIx = 10;    
+  const marketIx = 1;    
   const SECONDS_IN_A_WEEK = 7 * 24 * 60 * 60;
   const ONE_WEEK_FROM_NOW = new anchor.BN(Math.floor(Date.now() / 1000) + SECONDS_IN_A_WEEK);
 

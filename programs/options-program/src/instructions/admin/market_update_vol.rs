@@ -24,14 +24,12 @@ pub struct UpdateMarketVol<'info> {
     pub signer: Signer<'info>,
 
     #[account(
-        init,
-        payer = signer,
+        mut,
         seeds = [
             MARKET_SEED.as_bytes(),
             params.ix.to_le_bytes().as_ref()
         ],
-        bump,
-        space = 8 + Market::INIT_SPACE
+        bump
     )]
     pub market: Account<'info, Market>,
 

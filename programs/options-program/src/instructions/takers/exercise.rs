@@ -1,7 +1,6 @@
 use core::cmp::min;
 use crate::common::OptionType;
 use crate::constants::EXERCISE_INTERVAL_TOLERANCE;
-use crate::constants::STRIKE_PRICE_DECIMALS;
 use crate::errors::*;
 use crate::state::event::*;
 use crate::state::user_account::*;
@@ -73,35 +72,33 @@ impl ExerciseOption<'_> {
         let option = &mut user_account.options[option_id as usize];
 
         let mut user_payout_in_tokens = 0u64;
-
         let stamp_now = Clock::get()?.unix_timestamp;
+
+        //For european style options
+        //require!(stamp_now >= option.expiry - EXERCISE_INTERVAL_TOLERANCE, CustomError::ExerciseTooEarly);
         require!(stamp_now <= option.expiry + EXERCISE_INTERVAL_TOLERANCE, CustomError::ExerciseIsOverdue);
 
         //Get asset price from oracle in usd, scaled by 10^6 (Pyth)
         let price_update = &mut ctx.accounts.price_update;
+
         // Using increased, suboptimal, maximum age, because we are working with cloned pyth account w stale updated price 
         let maximum_age: u64 = 100* 60; 
+        // let maximum_age: u64 = 5; //1 sec for mainnet
+
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
-
-        let pyth_decimals = price.exponent.abs() as u32; 
         
-        let scaled_strike_price = if pyth_decimals >= STRIKE_PRICE_DECIMALS {
-            option.strike_price * 10u64.pow(pyth_decimals - STRIKE_PRICE_DECIMALS)
-        } else {
-            option.strike_price / 10u64.pow(STRIKE_PRICE_DECIMALS - pyth_decimals)
-        };        
-
         let profit_usd = match OptionType::try_from(option.option_type).unwrap() {
             OptionType::CALL => {
                 (price.price as u64)
-                    .saturating_sub(scaled_strike_price) 
+                    .saturating_sub(option.strike_price) 
                     .checked_mul(option.quantity).unwrap()
             },
             OptionType::PUT => {
-                (scaled_strike_price as u64)
-                    .saturating_sub(price.price as u64)
-                    .checked_mul(option.quantity).unwrap()
+                return err!(CustomError::NotImplemented);
+                // (option.strike_price as u64)
+                //     .saturating_sub(price.price as u64)
+                //     .checked_mul(option.quantity).unwrap()
             }
         };
 
@@ -161,7 +158,6 @@ impl ExerciseOption<'_> {
         msg!("Payout usd (in 10^8) {} ", profit_usd);
         msg!("Payout token amount {} ", user_payout_in_tokens);
         msg!("Option type {:?} ", option.option_type);
-        msg!("Option ix {} ", option_id);
 
         //emit event
         emit!(OptionExercised {

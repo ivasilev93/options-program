@@ -8,6 +8,8 @@ pub enum CustomError {
     SlippageExceeded,
     #[msg("InvalidAmount")]
     InvalidAmount,
+    #[msg("InvalidQuantity")]
+    InvalidQuantity,
     #[msg("DustAmount")]
     DustAmount,
     #[msg("Overflow")]
@@ -24,6 +26,8 @@ pub enum CustomError {
     InvalidPriceFeed,
     #[msg("ExerciseIsOverdue")]
     ExerciseIsOverdue,
+    #[msg("ExerciseTooEarly")]
+    ExerciseTooEarly,
     #[msg("InsufficientShares")]
     InsufficientShares,
     #[msg("InvalidState")]
@@ -34,4 +38,10 @@ pub enum CustomError {
     InvalidPrices,
     #[msg("Cannot withdraw. Funds are collateral to active options")]
     CannotWithdraw,
+    #[msg("NotImplemented")]
+    NotImplemented,
+    #[msg("InvalidStrikePrice")]
+    InvalidStrikePrice,
+    #[msg("InvalidVolatility")]
+    InvalidVolatility,
 }

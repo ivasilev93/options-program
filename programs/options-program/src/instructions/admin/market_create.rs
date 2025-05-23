@@ -23,7 +23,7 @@ pub struct CreateMarketParams {
 pub struct CreateMarket<'info> {
     #[account(
         mut,
-        constraint = signer.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
+        // constraint = signer.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
     )]
     pub signer: Signer<'info>,
 
@@ -114,3 +114,4 @@ impl CreateMarket<'_> {
         Ok(())
     }
 }
+

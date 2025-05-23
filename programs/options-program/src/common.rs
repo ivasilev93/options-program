@@ -48,6 +48,18 @@ pub enum ExpiryError {
     InvalidExpirySetting,
 }
 
+impl Expiry {
+    pub fn to_seconds(&self) -> std::result::Result<u64, ExpiryError> {
+        match self {
+            Expiry::HOUR1 => Ok(60 * 60),
+            Expiry::HOUR4 => Ok(4 * 60 * 60),
+            Expiry::DAY1 => Ok(24 * 60 * 60),
+            Expiry::DAY3 => Ok(3 * 24 * 60 * 60),
+            Expiry::WEEK => Ok(7 * 24 * 60 * 60),
+        }
+    }
+}
+
 impl TryFrom<u8> for Expiry {
     type Error = ExpiryError;
 
@@ -60,7 +72,7 @@ impl TryFrom<u8> for Expiry {
             4 => Ok(Expiry::WEEK),
             _ => Err(ExpiryError::InvalidExpirySetting)
         }
-    }
+    }   
 }
 
 pub fn calc_time_distance(stamp_now: i64, expiry_stamp: i64) -> Result<f64> {

@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::math::lp_shares::calc_lp_shares;
 use crate::state::market::*;
 use crate::state::event::*;
 use anchor_spl::associated_token::AssociatedToken;
@@ -143,3 +144,4 @@ impl MarketDeposit<'_> {
         Ok(())
     }
 }
+

@@ -2,11 +2,12 @@ use anchor_lang::prelude::*;
 
 mod state;
 mod errors;
+mod math;
 mod constants;
 mod instructions;
 mod common;
 
-use instructions::admin::{ market_create:: *, market_update_vol::* };
+use instructions::admin::{ market_create:: *, market_update_vol::*, withdraw_fees::* };
 use instructions::makers::{ market_deposit::*, market_withdraw::* };
 use instructions::takers::{ acc_create::*, buy::*, exercise::* };
 
@@ -25,9 +26,13 @@ pub mod options_program {
         UpdateMarketVol::handle(ctx, params)
     }  
 
-    //TODO:
-    //Allow admin to withdraw protocol fees    
-    //Expose instruction for authorized off-chain cron to exercise options on taker's behalf for convenience 
+    pub fn withdraw_fees(ctx: Context<WithdrawFees>, params: WithdrawFeesParams) -> Result<()> {
+        WithdrawFees::handle(ctx, params)
+    }  
+
+    //TODO
+    // Admin to pause market
+    // Instruction for off-chain service to exercise option on expiry on user's behalf (for convenience)
 
     // --- Takers (Option buyers) --- //
     pub fn create_account(ctx: Context<AccountCreate>) -> Result<()> {

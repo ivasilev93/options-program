@@ -7,7 +7,7 @@ mod constants;
 mod instructions;
 mod common;
 
-use instructions::admin::{ market_create:: *, market_update_vol::*, withdraw_fees::* };
+use instructions::admin::{ market_create:: *, market_update_vol::*, withdraw_fees::*, market_close::* };
 use instructions::makers::{ market_deposit::*, market_withdraw::* };
 use instructions::takers::{ acc_create::*, buy::*, exercise::* };
 
@@ -15,6 +15,7 @@ declare_id!("Be2AgTUf5uVfdHaSXPpzifVkmwfkgRwtLToVywevfvrS");
 
 #[program]
 pub mod options_program {
+
     use super::*;
 
     // --- Admin --- ///
@@ -29,6 +30,10 @@ pub mod options_program {
     pub fn withdraw_fees(ctx: Context<WithdrawFees>, params: WithdrawFeesParams) -> Result<()> {
         WithdrawFees::handle(ctx, params)
     }  
+
+    pub fn close_market(ctx: Context<CloseMarket>, params: CloseMarketParams) -> Result<()> {
+        CloseMarket::handle(ctx, params)
+    }
 
     //TODO
     // Admin to pause market

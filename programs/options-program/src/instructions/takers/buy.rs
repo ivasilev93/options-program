@@ -107,7 +107,7 @@ impl BuyOption<'_> {
         require!(available_collateral > total_collateral_tokens, CustomError::InsufficientColateral);  
         
         //Premium
-        let (_, premium_tokens, fee_tokens) = calculate_option_premium(
+        let (premium_usd, premium_tokens, fee_tokens) = calculate_option_premium(
             params.strike_price_usd as u128,
             price.price as u128,
             params.expiry_setting,
@@ -159,6 +159,7 @@ impl BuyOption<'_> {
             strike_price: params.strike_price_usd,
             expiry: option_expiry,
             premium: premium_tokens,
+            premium_in_usd: premium_usd,
             quantity: params.quantity,
             max_potential_payout_in_tokens: total_collateral_tokens,
             market_ix: params.market_ix,
@@ -173,6 +174,7 @@ impl BuyOption<'_> {
         market: {}
         quantity: {}
         premium in tokens: {} 
+        premium in usd: {}
         bought_at_price_usd: {}
         strike_price_usd: {}
         option: {:?}
@@ -182,6 +184,7 @@ impl BuyOption<'_> {
         params.market_ix,
         params.quantity,
         premium_tokens,
+        premium_usd,
         price.price,
         params.strike_price_usd,
         params.option.clone(),

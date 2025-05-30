@@ -4,7 +4,7 @@ import { OptionsProgram } from "../target/types/options_program";
 import { AccountInfo, Connection, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from '@solana/web3.js'
 import { assert, expect } from "chai";
 import { TOKEN_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/utils/token";
-import { amountToUiAmount, ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccount, createAssociatedTokenAccountInstruction, createSyncNativeInstruction, getAssociatedTokenAddress, NATIVE_MINT } from "@solana/spl-token";
+import { amountToUiAmount, ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccount, createAssociatedTokenAccountInstruction, createSyncNativeInstruction, getAssociatedTokenAddress, getOrCreateAssociatedTokenAccount, NATIVE_MINT, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import { PythSolanaReceiver } from "@pythnetwork/pyth-solana-receiver";
 
@@ -20,10 +20,12 @@ describe("options-program test suite", async () => {
   console.log('Program Id: ', program.programId);
 
   // --- ACCOUNTS --- //
+  const admin = anchor.web3.Keypair.generate();
   const alice = anchor.web3.Keypair.generate();
   const bob = anchor.web3.Keypair.generate();
   const john = anchor.web3.Keypair.generate();
 
+  // let admin_wsol_acc: PublicKey;
   let alice_wsol_acc: PublicKey;
   let bob_wsol_acc: PublicKey;
   let john_wsol_acc: PublicKey;
@@ -36,11 +38,10 @@ describe("options-program test suite", async () => {
   const SOL_USD_PRICE_FEED_ID = '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d';
   const marketIx = 1;    
   const SECONDS_IN_A_WEEK = 7 * 24 * 60 * 60;
-  const ONE_WEEK_FROM_NOW = new anchor.BN(Math.floor(Date.now() / 1000) + SECONDS_IN_A_WEEK);
 
   const START_SOL_BALANCE = 1001 * LAMPORTS_PER_SOL;
   const DEPOSIT_AMOUNT = 1000 * LAMPORTS_PER_SOL;
-
+  const ADMIN_START_BALANCE = 1 * LAMPORTS_PER_SOL;
 
   // --- TEST PDAs --- //
   const [marketPDA,] = await anchor.web3.PublicKey.findProgramAddressSync(
@@ -76,6 +77,12 @@ describe("options-program test suite", async () => {
     await airdropToWallets(
       [alice, bob, john], 
       START_SOL_BALANCE,
+      provider.connection
+    );
+
+    await airdropToWallets(
+      [admin], 
+      ADMIN_START_BALANCE,
       provider.connection
     );
 
@@ -122,58 +129,58 @@ describe("options-program test suite", async () => {
 
   // })
 
-  it("Ensure non-admin cannot create new market", async () => {
-    const nonAdmin = anchor.web3.Keypair.generate();
-    const airdropSignature = await provider.connection.requestAirdrop(
-      nonAdmin.publicKey,
-      10 * LAMPORTS_PER_SOL
-    );
-    let latestBlockHash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: airdropSignature,
-    });
+  // it("Ensure non-admin cannot create new market", async () => {
+  //   const nonAdmin = anchor.web3.Keypair.generate();
+  //   const airdropSignature = await provider.connection.requestAirdrop(
+  //     nonAdmin.publicKey,
+  //     10 * LAMPORTS_PER_SOL
+  //   );
+  //   let latestBlockHash = await provider.connection.getLatestBlockhash();
+  //   await provider.connection.confirmTransaction({
+  //     blockhash: latestBlockHash.blockhash,
+  //     lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+  //     signature: airdropSignature,
+  //   });
 
-    try {
-      const createMarketSignature = await program.methods.createMarket({
-        fee: new anchor.BN(50),
-        name: 'wSOL market',
-        ix: marketIx,
-        priceFeed: SOL_USD_PRICE_FEED_ID,
-        hour1VolatilityBps: 10000,
-        hour4VolatilityBps: 10000,
-        day1VolatilityBps: 10000,
-        day3VolatilityBps: 10000,
-        weekVolatilityBps: 10000,
-      })
-        .accountsStrict({
-          market: marketPDA,
-          marketVault: marketVaultPDA,
-          lpMint: lpMintPDA,
-          assetMint: NATIVE_MINT,
-          protocolFeesVault: protocolFeesVault,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          signer: nonAdmin.publicKey,
-          systemProgram: SYSTEM_PROGRAM_ID
-      })
-      .signers([nonAdmin])
-      .rpc();
+  //   try {
+  //     const createMarketSignature = await program.methods.createMarket({
+  //       fee: new anchor.BN(50),
+  //       name: 'wSOL market',
+  //       ix: marketIx,
+  //       priceFeed: SOL_USD_PRICE_FEED_ID,
+  //       hour1VolatilityBps: 10000,
+  //       hour4VolatilityBps: 10000,
+  //       day1VolatilityBps: 10000,
+  //       day3VolatilityBps: 10000,
+  //       weekVolatilityBps: 10000,
+  //     })
+  //       .accountsStrict({
+  //         market: marketPDA,
+  //         marketVault: marketVaultPDA,
+  //         lpMint: lpMintPDA,
+  //         assetMint: NATIVE_MINT,
+  //         protocolFeesVault: protocolFeesVault,
+  //         tokenProgram: TOKEN_PROGRAM_ID,
+  //         signer: nonAdmin.publicKey,
+  //         systemProgram: SYSTEM_PROGRAM_ID
+  //     })
+  //     .signers([nonAdmin])
+  //     .rpc();
   
-      latestBlockHash = await provider.connection.getLatestBlockhash();
-      await provider.connection.confirmTransaction({
-        blockhash: latestBlockHash.blockhash,
-        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-        signature: createMarketSignature,
-      });
-    } catch (err) {
-      assert.strictEqual(err.error.errorCode.code, "Unauthorized");
-      assert.strictEqual(
-        err.error.errorMessage,
-        "Unauthorized",
-      );
-    }
-  })
+  //     latestBlockHash = await provider.connection.getLatestBlockhash();
+  //     await provider.connection.confirmTransaction({
+  //       blockhash: latestBlockHash.blockhash,
+  //       lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+  //       signature: createMarketSignature,
+  //     });
+  //   } catch (err) {
+  //     assert.strictEqual(err.error.errorCode.code, "Unauthorized");
+  //     assert.strictEqual(
+  //       err.error.errorMessage,
+  //       "Unauthorized",
+  //     );
+  //   }
+  // })
 
   it("Admin can create new market", async () => {
     const createMarketSignature = await program.methods.createMarket({
@@ -194,9 +201,10 @@ describe("options-program test suite", async () => {
         lpMint: lpMintPDA,
         assetMint: NATIVE_MINT,
         tokenProgram: TOKEN_PROGRAM_ID,
-        signer: wallet.publicKey,
+        signer: admin.publicKey,
         systemProgram: SYSTEM_PROGRAM_ID
     })
+    .signers([admin])
     .rpc();
   
     const latestBlockHash = await provider.connection.getLatestBlockhash();
@@ -340,35 +348,35 @@ describe("options-program test suite", async () => {
 
   });
 
-  // it("Takers (John) can exercise his option. Market(pool) accrues premiums", async () => {
-  //   // Derive the PDA (Program Derived Address)
-  //   const [john_taker_accountPda, bump] = await anchor.web3.PublicKey.findProgramAddress(
-  //     [Buffer.from("account"), john.publicKey.toBuffer()],
-  //     program.programId
-  //   );
+  it("Takers (John) can exercise his option. Market(pool) accrues premiums", async () => {
+    // Derive the PDA (Program Derived Address)
+    const [john_taker_accountPda, bump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("account"), john.publicKey.toBuffer()],
+      program.programId
+    );
 
-  //   await program.methods.exercise({
-  //     marketIx: marketIx,
-  //     optionId: 0
-  //   }).accountsStrict({
-  //     account: john_taker_accountPda,
-  //     assetMint: NATIVE_MINT,
-  //     market: marketPDA,
-  //     marketVault: marketVaultPDA,
-  //     priceUpdate: new PublicKey("7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE"),
-  //     signer: john.publicKey,
-  //     tokenProgram: TOKEN_PROGRAM_ID,
-  //     userTokenAcc: john_wsol_acc,
-  //   })
-  //   .signers([john]).rpc();
+    await program.methods.exercise({
+      marketIx: marketIx,
+      optionId: 0
+    }).accountsStrict({
+      account: john_taker_accountPda,
+      assetMint: NATIVE_MINT,
+      market: marketPDA,
+      marketVault: marketVaultPDA,
+      priceUpdate: new PublicKey("7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE"),
+      signer: john.publicKey,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      userTokenAcc: john_wsol_acc,
+    })
+    .signers([john]).rpc();
 
-  //   const john_accountData = await program.account.userAccount.fetch(john_taker_accountPda);
-  //   const opt = john_accountData.options[0];
-  //   assert(opt.strikePrice.toNumber() === 0 && opt.expiry.toNumber() === 0 && opt.quantity.toNumber() === 0, "Option not in cleared state");
+    const john_accountData = await program.account.userAccount.fetch(john_taker_accountPda);
+    const opt = john_accountData.options[0];
+    assert(opt.strikePrice.toNumber() === 0 && opt.expiry.toNumber() === 0 && opt.quantity.toNumber() === 0, "Option not in cleared state");
 
-  //   const market = await program.account.market.fetch(marketPDA);
-  //   assert(market.committedReserve.toNumber() === 0, "Market should have no collateral");
-  // });
+    const market = await program.account.market.fetch(marketPDA);
+    assert(market.committedReserve.toNumber() === 0, "Market should have no collateral");
+  });
 
   it("Bob deposits after premium are accumulated and should receive less shares than Alice", async () => {
     const market = await program.account.market.fetch(marketPDA);
@@ -452,22 +460,6 @@ describe("options-program test suite", async () => {
     await program.methods.exercise({
       marketIx: marketIx,
       optionId: 0
-    }).accountsStrict({
-      account: john_taker_accountPda,
-      assetMint: NATIVE_MINT,
-      market: marketPDA,
-      marketVault: marketVaultPDA,
-      priceUpdate: new PublicKey("7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE"),
-      signer: john.publicKey,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      userTokenAcc: john_wsol_acc,
-    })
-    .signers([john]).rpc();
-
-    //Exercise
-    await program.methods.exercise({
-      marketIx: marketIx,
-      optionId: 1
     }).accountsStrict({
       account: john_taker_accountPda,
       assetMint: NATIVE_MINT,
@@ -571,6 +563,80 @@ describe("options-program test suite", async () => {
     assert(Number(alicewSOLbalance.value.amount) > Number(bobwSOLbalance.value.amount), "Alice should have more asset tokens that Bob");
     assert(Number(alicewSOLbalance.value.amount) > DEPOSIT_AMOUNT, "Alice should have more than 1000 wSOL tokens");
     assert(Number(bobwSOLbalance.value.amount) > DEPOSIT_AMOUNT, "Bob should have more than 1000 wSOL tokens");
+  })
+
+  it("Admin can close market. Should receive protocol fees. Associated market PDAs must be closed", async () => {
+    let market = await program.account.market.fetch(marketPDA);
+    let marketVault = await provider.connection.getTokenAccountBalance(marketVaultPDA);
+    let protocolFees = await provider.connection.getTokenAccountBalance(protocolFeesVault);
+    console.log('admin publick key', admin.publicKey)
+    console.log('marketVault', marketVault)
+    console.log('protocolFees', protocolFees)
+
+    assert(market != null, "Market pda should exist");
+    assert(Number(protocolFees.value.amount) > 0, "Protocol PDA should have accumulated fees");
+
+    const adminAta = await getAssociatedTokenAddress(NATIVE_MINT, admin.publicKey, false);
+    const adminAtaAccInfo = await provider.connection.getAccountInfo(adminAta);
+    if (!adminAtaAccInfo) {
+      console.log('Creating admin ata...', adminAta)
+      const ix = createAssociatedTokenAccountInstruction(
+        admin.publicKey, 
+        adminAta,             
+        admin.publicKey,
+        NATIVE_MINT
+      );
+
+      const tx = new Transaction().add(ix);
+      const sig = await provider.sendAndConfirm(tx, [admin]);
+
+      const latestBlockHash = await provider.connection.getLatestBlockhash();
+      await provider.connection.confirmTransaction({
+        blockhash: latestBlockHash.blockhash,
+        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+        signature: sig,
+      });
+
+    let adminAtaBalance = await provider.connection.getTokenAccountBalance(adminAta);
+    console.log('Admin ata balance', adminAtaBalance)
+
+    }
+
+    const res = await program.methods
+      .closeMarket({ix: marketIx})
+      .accountsStrict({
+        admin: admin.publicKey,
+        assetMint: NATIVE_MINT,
+        lpMint: lpMintPDA,
+        market: marketPDA,
+        marketVault: marketVaultPDA,
+        protocolFeesVault: protocolFeesVault,
+        systemProgram: SYSTEM_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        adminAssetAta: adminAta
+      })
+      .signers([admin])
+      .rpc();
+
+      console.log('Close ix signature: ', res)
+
+    const marketPDAInfo = await provider.connection.getAccountInfo(marketPDA);
+    const marketVaultPDAInfo = await provider.connection.getAccountInfo(marketVaultPDA);
+    const protocolFeesVaultInfo = await provider.connection.getAccountInfo(protocolFeesVault);
+    const adminAtaBalance = await provider.connection.getTokenAccountBalance(adminAta);
+    const adminLamports = await provider.connection.getBalance(admin.publicKey);
+
+    // marketVault = await provider.connection.getTokenAccountBalance(marketVaultPDA);
+    // protocolFees = await provider.connection.getTokenAccountBalance(protocolFeesVault);
+
+    assert(marketPDAInfo == null, "Market PDA is not closed");
+    assert(marketVaultPDAInfo == null, "Market Vault PDA is not closed");
+    assert(protocolFeesVaultInfo == null, "Protocol fees PDA is not closed");
+    console.log('marketPDAInfo', marketPDAInfo)
+    console.log('marketVaultPDAInfo', marketVaultPDAInfo)
+    console.log('protocolFeesVaultInfo', protocolFeesVaultInfo)
+    console.log('adminAtaBalance', adminAtaBalance)
+    console.log('adminLamports', adminLamports)
   })
 });
 

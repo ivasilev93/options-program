@@ -101,7 +101,7 @@ impl CloseMarket<'_> {
                     TransferChecked {
                     from: market_vault.to_account_info(),
                     to: ctx.accounts.admin_asset_ata.to_account_info(),
-                    authority: ctx.accounts.admin.to_account_info(),
+                    authority: market_vault.to_account_info(),
                     mint: ctx.accounts.asset_mint.to_account_info()
                 }).with_signer(vault_signer_seeds),
                 market_vault.amount,
@@ -114,7 +114,7 @@ impl CloseMarket<'_> {
             CloseAccount {
                 account: market_vault.to_account_info(),
                 destination: ctx.accounts.admin.to_account_info(),
-                authority: ctx.accounts.market.to_account_info(),
+                authority: market_vault.to_account_info(),
             },
             vault_signer_seeds
         ))?;
@@ -131,7 +131,7 @@ impl CloseMarket<'_> {
                     TransferChecked {
                     from: fees_vault.to_account_info(),
                     to: ctx.accounts.admin_asset_ata.to_account_info(),
-                    authority: ctx.accounts.admin.to_account_info(),
+                    authority: fees_vault.to_account_info(),
                     mint: ctx.accounts.asset_mint.to_account_info()
                 }).with_signer(fees_signer_seeds),
                 fees_vault.amount,
@@ -144,7 +144,7 @@ impl CloseMarket<'_> {
             CloseAccount {
                 account: fees_vault.to_account_info(),
                 destination: ctx.accounts.admin.to_account_info(),
-                authority: ctx.accounts.market.to_account_info(),
+                authority: fees_vault.to_account_info(),
             },
             fees_signer_seeds
         ))?;

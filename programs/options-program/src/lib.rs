@@ -35,8 +35,9 @@ pub mod options_program {
         CloseMarket::handle(ctx, params)
     }
 
-    //TODO
+    //TODO:
     // Admin to pause market
+    
     // Instruction for off-chain service to exercise option on expiry on user's behalf (for convenience)
 
     // --- Takers (Option buyers) --- //

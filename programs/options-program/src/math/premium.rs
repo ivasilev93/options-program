@@ -82,7 +82,7 @@ fn calculate_call_premium(
     let time_sqrt = sqrt(time_to_expiry);
     
     // Time value component (simplified for integer math)
-    let time_value = (current_price * volatility * time_sqrt) / (PRECISION * 10000);
+    let time_value = (current_price * volatility * time_sqrt) / (PRECISION * 10_000);
     
     // If deep out of money (current < 0.8 * strike), reduce premium
     let moneyness_factor = if current_price < (strike_price * 8) / 10 {

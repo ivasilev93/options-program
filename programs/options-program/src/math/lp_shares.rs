@@ -13,6 +13,7 @@ use crate::{errors::CustomError, state::market::Market};
 /// 
 /// @returns Result<u64> - Amount of LP tokens to mint on success, scaled in base units, or error
 pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Market) -> Result<u64> {
+    //(Incoming amount / total reserve) * minted lp tokens
     require!(base_asset_amount > 0, CustomError::InvalidAmount);
     require!(min_amount_out > 0, CustomError::InvalidAmount);
 

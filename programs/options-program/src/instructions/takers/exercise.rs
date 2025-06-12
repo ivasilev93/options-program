@@ -74,7 +74,7 @@ impl ExerciseOption<'_> {
         let mut user_payout_in_tokens = 0u64;
         let stamp_now = Clock::get()?.unix_timestamp;
 
-        //For european style options
+        //Commented constraint for expiration date for the purpose of easier demo...
         //require!(stamp_now >= option.expiry - EXERCISE_INTERVAL_TOLERANCE, CustomError::ExerciseTooEarly);
         require!(stamp_now <= option.expiry + EXERCISE_INTERVAL_TOLERANCE, CustomError::ExerciseIsOverdue);
 
@@ -82,8 +82,8 @@ impl ExerciseOption<'_> {
         let price_update = &mut ctx.accounts.price_update;
 
         // Using increased, suboptimal, maximum age, because we are working with cloned pyth account w stale updated price 
-        let maximum_age: u64 = 100* 60; 
-        // let maximum_age: u64 = 5; //1 sec for mainnet
+        // let maximum_age: u64 = 100* 60; 
+        let maximum_age: u64 = 90; //90 sec for mainnet
 
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &feed_id)?;
@@ -96,9 +96,6 @@ impl ExerciseOption<'_> {
             },
             OptionType::PUT => {
                 return err!(CustomError::NotImplemented);
-                // (option.strike_price as u64)
-                //     .saturating_sub(price.price as u64)
-                //     .checked_mul(option.quantity).unwrap()
             }
         };
 

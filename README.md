@@ -119,7 +119,7 @@ In constants.rs file set the admin key to your local wallet public key:
 //the public key of your local wallet
 pub const ADMIN_KEY: &str = "FARXLJJbSwZyELTe8TXihES7o26B2d5NKkvCkETP7Gnz"; 
 ```
-or comment the constraint in market_create.rs like:
+or comment the constraint in market_create.rs, market_close.rs, market_update_vol.rs, withdraw_fees.rs like:
 ```rust
 #[account(
         mut,
@@ -146,9 +146,6 @@ Run separate validator, cloning the pyth SOL/USD feed
 solana-test-validator --bind-address 0.0.0.0 --url https://api.mainnet-beta.solana.com --ledger .anchor/test-ledger --rpc-port 8899 --clone 7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE --clone 7dbob1psH1iZBS7qPsm3Kwbf5DzSXK8Jyg31CTgTnxH5 --reset
 anchor deploy
 ```
-JUP token pyth acc - 7dbob1psH1iZBS7qPsm3Kwbf5DzSXK8Jyg31CTgTnxH5
-JUP pyth feed id - 0x0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996
-JUP mint addr - JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN
 
 ```bash
 git clone https://github.com/ivasilev93/options-program-front-end.git

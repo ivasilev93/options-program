@@ -44,4 +44,6 @@ pub enum CustomError {
     InvalidStrikePrice,
     #[msg("InvalidVolatility")]
     InvalidVolatility,
+    #[msg("VolatilityStaled")]
+    VolatilityStaled,
 }

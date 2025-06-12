@@ -16,17 +16,15 @@ pub fn calculate_option_premium(
     require!(quantity > 0, CustomError::InvalidQuantity);
     require!(strike_price_usd > 0, CustomError::InvalidStrikePrice);
     
-    // Get time to expiry in years (using integer division)
-    let time_to_expiry_seconds = expiry.to_seconds().unwrap() as u128;
-    
+    // Expiry window is converted to time_to_expiry in seconds, as fraction of the year.
+    let time_to_expiry_seconds = expiry.to_seconds().unwrap() as u128;    
     let time_to_expiry = (time_to_expiry_seconds * PRECISION) / SECONDS_IN_YEAR;
     
-    // Choose appropriate volatility based on expiry time
     let volatility_bps = market.get_volatility(&expiry).unwrap() as u128;
     require!(volatility_bps > 0, CustomError::InvalidVolatility);
     
     // Volatility as a scaled integer (bps to decimal equivalent)
-    let volatility = (volatility_bps * PRECISION) / 10_000;
+    let volatility = volatility_bps * 10_000;
     
     // Calculate premium based on option type
     let scaled_usd_premium = match option_type {
@@ -37,6 +35,7 @@ pub fn calculate_option_premium(
             volatility,
         )?,
         _ => {
+            //PUT not implemented for now...
             return err!(CustomError::NotImplemented);
         }
     };
@@ -62,14 +61,18 @@ pub fn calculate_option_premium(
 }
 
 
+     
+// Premium = Intrinsic Value + Time Value
+// where:
+// Intrinsic Value = How much option if worth if exercised now
+// Time value - extra value from volatility and time to expiry
 fn calculate_call_premium(
     current_price: u128,
     strike_price: u128,
     time_to_expiry: u128,  // In years, scaled by PRECISION
     volatility: u128,      // Annual volatility, scaled by PRECISION
 ) -> Result<u64> {
-
-    // Intrinsic value 
+    
     let intrinsic = if current_price > strike_price {
         current_price - strike_price
     } else {
@@ -81,10 +84,10 @@ fn calculate_call_premium(
     // Calculate sqrt using integer approximation
     let time_sqrt = sqrt(time_to_expiry);
     
-    // Time value component (simplified for integer math)
+    // Time value component (extra value from volatility and time to expiry)
     let time_value = (current_price * volatility * time_sqrt) / (PRECISION * 10_000);
     
-    // If deep out of money (current < 0.8 * strike), reduce premium
+    // If deep out of money (current < 0.8 * strike), reduce premium (apply discount)
     let moneyness_factor = if current_price < (strike_price * 8) / 10 {
         // Out of the money discount
         (current_price * PRECISION) / strike_price

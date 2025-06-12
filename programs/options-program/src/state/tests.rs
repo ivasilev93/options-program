@@ -240,6 +240,8 @@ mod premium_display {
                 x4 as f64 / SCALE as f64,
                 x5 as f64 / SCALE as f64,
             );
+
+            println!("");
         }
     }
 

@@ -15,7 +15,7 @@ pub struct CloseMarketParams {
 pub struct CloseMarket<'info> {
     #[account(
         mut,
-        // constraint = signer.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
+        constraint = admin.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
     )]
     pub admin: Signer<'info>,
 

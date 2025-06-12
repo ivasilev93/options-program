@@ -6,9 +6,10 @@ pub const USR_ACC_SEED: &str = "account";
 #[account(zero_copy)]
 #[derive(InitSpace, PartialEq, Eq)]
 pub struct UserAccount {
-    pub options: [OptionOrder; 32]
+    pub options: [OptionOrder; 32] // ~2kb. Can go potentially ~480 for ~32kb heap storage. Max storage mb, but at the cost of performance. 
 }
 
+//Ruffly ~64 bytes
 #[derive(PartialEq, Eq,InitSpace)]
 #[zero_copy]
 #[repr(C)]

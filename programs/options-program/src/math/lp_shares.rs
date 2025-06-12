@@ -13,7 +13,7 @@ use crate::{errors::CustomError, state::market::Market};
 /// 
 /// @returns Result<u64> - Amount of LP tokens to mint on success, scaled in base units, or error
 pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Market) -> Result<u64> {
-    //(Incoming amount / total reserve) * minted lp tokens
+    //minted amount = (Incoming amount / total reserve) * minted lp tokens
     require!(base_asset_amount > 0, CustomError::InvalidAmount);
     require!(min_amount_out > 0, CustomError::InvalidAmount);
 
@@ -40,6 +40,7 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
         lp_tokens_u64
     };
 
+    //Slippage check
     require!(lp_tokens_to_mint >= min_amount_out, CustomError::SlippageExceeded);
 
     Ok(lp_tokens_to_mint)
@@ -49,6 +50,7 @@ pub fn calc_lp_shares(base_asset_amount: u64, min_amount_out: u64, market: &Mark
 /// accounting for the proportion of total liquidity owned and ensuring withdrawal amounts 
 /// don't exceed available uncommitted reserves.
 pub fn calc_withdraw_amount_from_lp_shares(lp_tokens_to_burn: u64, market: &Market,) -> Result<(u64, u64)> {
+    //redeem_amount = (lp_tokens_burned / total_lp_supply) * current_pool_value
     require!(lp_tokens_to_burn > 0, CustomError::InvalidAmount);
     require!(market.lp_minted >= lp_tokens_to_burn, CustomError::InsufficientShares);
 

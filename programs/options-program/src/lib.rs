@@ -11,34 +11,29 @@ use instructions::admin::{ market_create:: *, market_update_vol::*, withdraw_fee
 use instructions::makers::{ market_deposit::*, market_withdraw::* };
 use instructions::takers::{ acc_create::*, buy::*, exercise::* };
 
-declare_id!("Be2AgTUf5uVfdHaSXPpzifVkmwfkgRwtLToVywevfvrS");
+// declare_id!("Be2AgTUf5uVfdHaSXPpzifVkmwfkgRwtLToVywevfvrS");
+declare_id!("3ZWb72v75w19dvHjwsqxe6gdK3yvU6p645PPEFpCSzHg");
 
 #[program]
 pub mod options_program {
-
     use super::*;
 
     // --- Admin --- ///
     pub fn create_market(ctx: Context<CreateMarket>, params: CreateMarketParams) -> Result<()> {
         CreateMarket::handle(ctx, params)
     }
-
     pub fn update_market_vol(ctx: Context<UpdateMarketVol>, params: UpdateMarketVolParams) -> Result<()> {
         UpdateMarketVol::handle(ctx, params)
     }  
-
     pub fn withdraw_fees(ctx: Context<WithdrawFees>, params: WithdrawFeesParams) -> Result<()> {
         WithdrawFees::handle(ctx, params)
     }  
-
     pub fn close_market(ctx: Context<CloseMarket>, params: CloseMarketParams) -> Result<()> {
         CloseMarket::handle(ctx, params)
     }
-
     //TODO:
-    // Admin to pause market
-    
-    // Instruction for off-chain service to exercise option on expiry on user's behalf (for convenience)
+    //ix - Admin to pause market    
+    //ix - Instruction for off-chain service to exercise option on expiry on user's behalf (for convenience)
 
     // --- Takers (Option buyers) --- //
     pub fn create_account(ctx: Context<AccountCreate>) -> Result<()> {

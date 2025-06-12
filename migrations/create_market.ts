@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { OptionsProgram } from "../target/types/options_program";
-import { Keypair, PublicKey, Connection, SystemProgram } from "@solana/web3.js";
+import { Keypair, PublicKey, Connection, SystemProgram, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 
@@ -94,16 +94,24 @@ async function detectTokenProgram(connection: Connection, mint: PublicKey): Prom
        program.programId
      );
 
-    const createMarketSignature = await program.methods.createMarket({
+     const transaction = new Transaction();    
+     // Add priority fee instructions
+     transaction.add(
+       ComputeBudgetProgram.setComputeUnitPrice({ 
+         microLamports: 10 // Higher priority for admin operations
+       })
+     );
+
+    const createMarketIx = await program.methods.createMarket({
           fee: new anchor.BN(protocolFeeBps),
           name: '--', //todo remove later
           ix: marketIx,
           priceFeed: pythFeed,
           hour1VolatilityBps: 8000,
-          hour4VolatilityBps: 8000,
+          hour4VolatilityBps: 9000,
           day1VolatilityBps: 8000,
-          day3VolatilityBps: 8000,
-          weekVolatilityBps: 8000,
+          day3VolatilityBps: 7500,
+          weekVolatilityBps: 7000,
         }) 
           .accountsStrict({
             market: marketPDA,
@@ -116,14 +124,17 @@ async function detectTokenProgram(connection: Connection, mint: PublicKey): Prom
             systemProgram: SYSTEM_PROGRAM_ID
         })
         .signers([admin.payer])
-        .rpc();
+        .instruction();
+
+        transaction.add(createMarketIx);
       
-        const latestBlockHash = await provider.connection.getLatestBlockhash();
-        await provider.connection.confirmTransaction({
-          blockhash: latestBlockHash.blockhash,
-          lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-          signature: createMarketSignature,
-        });
+        const createMarketSignature = await provider.sendAndConfirm(transaction, [admin.payer]);
+        // const latestBlockHash = await provider.connection.getLatestBlockhash();
+        // await provider.connection.confirmTransaction({
+        //   blockhash: latestBlockHash.blockhash,
+        //   lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+        //   signature: createMarketSignature,
+        // });
   
         console.log('Market created: ', createMarketSignature);
   })();

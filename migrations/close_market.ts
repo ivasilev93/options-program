@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { OptionsProgram } from "../target/types/options_program";
-import { Keypair, PublicKey, Connection, SystemProgram, Transaction } from "@solana/web3.js";
+import { Keypair, PublicKey, Connection, SystemProgram, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
 import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 
@@ -55,6 +55,11 @@ async function detectTokenProgram(connection: Connection, mint: PublicKey): Prom
     const adminAtaAccInfo = await provider.connection.getAccountInfo(adminAta);
 
     const tx = new Transaction();
+    tx.add(
+           ComputeBudgetProgram.setComputeUnitPrice({ 
+             microLamports: 10 // Higher priority for admin operations
+           })
+         );
 
     let amdinAssetAmountBefore = 0;
     if (!adminAtaAccInfo) {
@@ -133,12 +138,12 @@ async function detectTokenProgram(connection: Connection, mint: PublicKey): Prom
     tx.add(closeMarketIx);
     const sig = await provider.sendAndConfirm(tx, [admin.payer]);    
       
-    const latestBlockHash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-        blockhash: latestBlockHash.blockhash,
-        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-        signature: sig,
-    });
+    // const latestBlockHash = await provider.connection.getLatestBlockhash();
+    // await provider.connection.confirmTransaction({
+    //     blockhash: latestBlockHash.blockhash,
+    //     lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+    //     signature: sig,
+    // });
   
     console.log('Market closed. Transaction signature: ', sig);
     const adminBalanceInfo = await provider.connection.getTokenAccountBalance(adminAta);

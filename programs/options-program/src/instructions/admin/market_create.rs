@@ -8,7 +8,7 @@ use crate::constants::ADMIN_KEY;
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct CreateMarketParams {
     pub fee: u64, 
-    pub name: String, 
+    pub name: String, //TODO not used, remove later
     pub ix: u16, 
     pub price_feed: String, 
     pub hour1_volatility_bps: u32,
@@ -23,7 +23,7 @@ pub struct CreateMarketParams {
 pub struct CreateMarket<'info> {
     #[account(
         mut,
-        // constraint = signer.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
+        constraint = signer.key() == Pubkey::from_str(ADMIN_KEY).unwrap() @ CustomError::Unauthorized
     )]
     pub signer: Signer<'info>,
 

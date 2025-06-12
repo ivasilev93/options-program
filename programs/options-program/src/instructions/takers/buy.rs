@@ -88,11 +88,14 @@ impl BuyOption<'_> {
         let price_update = &mut ctx.accounts.price_update;
 
         // Using increased, suboptimal, maximum age, because we are working with cloned pyth account w stale updated price 
-        let maximum_age: u64 = 100 * 60;
-        // let maximum_age: u64 = 5; //1 sec for mainnet
+        // let maximum_age: u64 = 100 * 60;
+        let maximum_age: u64 = 90; //90 sec for mainnet
 
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&clock, maximum_age, &feed_id)?;
+
+        //In serious production settings this should be checked for freshness
+        // require!(market.vol_last_updated + 120 >= clock.unix_timestamp, CustomError::VolatilityStaled);
 
         let (_, total_collateral_tokens) = calculate_collateral(
             params.strike_price_usd as u128,

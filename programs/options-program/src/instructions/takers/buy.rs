@@ -7,7 +7,7 @@ use crate::{common::*, errors::CustomError, math::premium::*, state::{event::Opt
 pub struct BuyOptionParams {
     pub market_ix: u16,
     pub option: OptionType,
-    pub strike_price_usd: u64,      //strike price in usd e.g. 120_000_000 for $120.00; 10^8
+    pub spot_deviation: SpotDeviation,  
     pub expiry_setting: Expiry,
     pub quantity: u64
 }
@@ -88,8 +88,8 @@ impl BuyOption<'_> {
         let price_update = &mut ctx.accounts.price_update;
 
         // Using increased, suboptimal, maximum age, because we are working with cloned pyth account w stale updated price 
-        // let maximum_age: u64 = 100 * 60;
-        let maximum_age: u64 = 90; //90 sec for mainnet
+        let maximum_age: u64 = 100 * 60;
+        // let maximum_age: u64 = 90; //90 sec for mainnet
 
         let feed_id = get_feed_id_from_hex(market.price_feed.as_str())?;
         let price = price_update.get_price_no_older_than(&clock, maximum_age, &feed_id)?;
@@ -97,8 +97,9 @@ impl BuyOption<'_> {
         //In serious production settings this should be checked for freshness
         // require!(market.vol_last_updated + 120 >= clock.unix_timestamp, CustomError::VolatilityStaled);
 
+        let strike_price_usd = params.spot_deviation.convert_to_strike(price.price as u128).unwrap();
         let (_, total_collateral_tokens) = calculate_collateral(
-            params.strike_price_usd as u128,
+            strike_price_usd,
             price.price as u128,
             &params.option,
             &market,
@@ -111,7 +112,7 @@ impl BuyOption<'_> {
         
         //Premium
         let (premium_usd, premium_tokens, fee_tokens) = calculate_option_premium(
-            params.strike_price_usd as u128,
+            strike_price_usd,
             price.price as u128,
             params.expiry_setting,
             market, 
@@ -159,7 +160,7 @@ impl BuyOption<'_> {
 
         //Save user option
         user_account.options[slot_ix] = OptionOrder {
-            strike_price: params.strike_price_usd,
+            strike_price: strike_price_usd as u64, //TODO u64::tryinto() better approach
             expiry: option_expiry,
             premium: premium_tokens,
             premium_in_usd: premium_usd,
@@ -189,7 +190,7 @@ impl BuyOption<'_> {
         premium_tokens,
         premium_usd,
         price.price,
-        params.strike_price_usd,
+        strike_price_usd,
         params.option.clone(),
         ctx.accounts.signer.key());
 
@@ -199,7 +200,7 @@ impl BuyOption<'_> {
             expiry_stamp: option_expiry,
             max_potential_payout_in_tokens: total_collateral_tokens,
             quantity: params.quantity,
-            strike_price_usd: params.strike_price_usd as u64, //TODO u64::tryinto() better approach
+            strike_price_usd: strike_price_usd as u64, //TODO u64::tryinto() better approach
             bought_at_price_usd: price.price as u64, 
             option: params.option.clone(),
             user: ctx.accounts.signer.key(),

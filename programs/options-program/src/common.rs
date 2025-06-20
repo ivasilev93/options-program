@@ -35,6 +35,49 @@ impl TryFrom<u8> for OptionType {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug, Copy)]
+pub enum SpotDeviation {
+    N20,
+    N15,
+    N10,
+    N5,
+    P0,
+    P5,
+    P10,
+    P15,
+    P20
+}
+
+impl SpotDeviation {
+    pub fn convert_to_strike(&self, spot_price: u128) -> Result<u128> {
+        let deviation = match &self {
+            SpotDeviation::N20 => { 80 },
+            SpotDeviation::N15 => { 85 },
+            SpotDeviation::N10 => { 90 },
+            SpotDeviation::N5 => { 95 },
+            SpotDeviation::P0 => { 100 },
+            SpotDeviation::P5 => { 105 },
+            SpotDeviation::P10 => { 110 },
+            SpotDeviation::P15 => { 115 },
+            SpotDeviation::P20 => { 120 },
+        };
+
+        //Imperfect, but good enough to support JUP tokens for demo...
+        let step = if spot_price < 100_000_000 {
+            1_000_000
+        } else {
+            100_000_000
+        };
+
+        let adjusted = spot_price
+                    .checked_mul(deviation).unwrap()
+                    .checked_div(100).unwrap();
+
+        let round_up = (adjusted + step / 2) / step;
+        Ok((round_up * step) as u128)
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug, Copy)]
 pub enum Expiry {
     HOUR1,
     HOUR4,

@@ -95,7 +95,9 @@ impl ExerciseOption<'_> {
                     .checked_mul(option.quantity).unwrap()
             },
             OptionType::PUT => {
-                return err!(CustomError::NotImplemented);
+                option.strike_price
+                    .saturating_sub(price.price as u64)
+                    .checked_mul(option.quantity).unwrap()
             }
         };
 

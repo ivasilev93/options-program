@@ -46,4 +46,6 @@ pub enum CustomError {
     InvalidVolatility,
     #[msg("VolatilityStaled")]
     VolatilityStaled,
+    #[msg("InvalidSpotPrice")]
+    InvalidSpotPrice,
 }

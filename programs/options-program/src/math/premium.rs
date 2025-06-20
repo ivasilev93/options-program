@@ -27,18 +27,13 @@ pub fn calculate_option_premium(
     let volatility = volatility_bps * 10_000;
     
     // Calculate premium based on option type
-    let scaled_usd_premium = match option_type {
-        OptionType::CALL => calculate_call_premium(
+    let scaled_usd_premium = calculate_premium(
             spot_price_usd,
             strike_price_usd,
             time_to_expiry,
             volatility,
-        )?,
-        _ => {
-            //PUT not implemented for now...
-            return err!(CustomError::NotImplemented);
-        }
-    };
+            option_type
+        )?;
     
     let total_scaled_usd_premium = scaled_usd_premium
         .checked_mul(quantity).ok_or(CustomError::Overflow)?;
@@ -60,23 +55,34 @@ pub fn calculate_option_premium(
     Ok((total_scaled_usd_premium, premium_in_tokens, fee_tokens))
 }
 
-
      
 // Premium = Intrinsic Value + Time Value
 // where:
 // Intrinsic Value = How much option if worth if exercised now
 // Time value - extra value from volatility and time to expiry
-fn calculate_call_premium(
+fn calculate_premium(
     current_price: u128,
     strike_price: u128,
     time_to_expiry: u128,  // In years, scaled by PRECISION
     volatility: u128,      // Annual volatility, scaled by PRECISION
+    option: &OptionType
 ) -> Result<u64> {
     
-    let intrinsic = if current_price > strike_price {
-        current_price - strike_price
-    } else {
-        0
+    let intrinsic = match option {
+        OptionType::CALL => {
+            if current_price > strike_price {
+                current_price - strike_price
+            } else {
+                0
+            }
+        },
+        OptionType::PUT => {
+             if strike_price > current_price {
+                strike_price - current_price
+            } else {
+                0
+            }
+        }
     };
     
     // Time value approximation by simplified formula w integers - volatility * price * sqrt(time_to_expiry)
@@ -114,14 +120,18 @@ pub fn calculate_collateral(
      // 1. Intrinsic value
     let intristic_value = match option {
         OptionType::CALL => {
-            if strike_usd < current_usd {
+             if current_usd > strike_usd {
                 current_usd - strike_usd
             } else {
                 0
             }
         },
-        _ => {
-            return err!(CustomError::NotImplemented);
+        OptionType::PUT => {
+             if strike_usd > current_usd {
+                strike_usd - current_usd
+            } else {
+                0
+            }
         }
     };
 
@@ -177,7 +187,7 @@ fn sqrt(y: u128) -> u128 {
     }
 }
 
-//Non deterministic sketch impl 
+//Non deterministic sketch impl for ref
 //TODO: Look into Kamino Lend's handling of fractions w Fraction crate - https://docs.rs/fraction/latest/fraction/
 
 // Calculates premium for a given market (asset), based on provided data. Risk free rate is assumed to be 0 for simplicity.
@@ -231,7 +241,7 @@ fn sqrt(y: u128) -> u128 {
 //     Ok(premium_scaled)
 // }
 
-//Cumulative distribution function (CDF) for a standard normal distribution
+// // //Cumulative distribution function (CDF) for a standard normal distribution
 // pub fn approximate_normal_cdf(x: f64) -> Result<f64> {
 //      // Simple approximation for N(x) (for demo)
 //     // Replace with a lookup table or better polynomial in production

@@ -109,11 +109,24 @@ mod market_issue_lp_shares_tests {
     // }
 }
 
+#[cfg(test)]
+mod spot_deviations {
+    use crate::common::SpotDeviation;
 
+    #[test]
+    fn test_deviations() {
+        let devs = vec![SpotDeviation::N20, SpotDeviation::N15, SpotDeviation::N10,SpotDeviation::N5, SpotDeviation::P5,SpotDeviation::P10,SpotDeviation::P15,SpotDeviation::P20];
+
+        for d in devs {
+            println!("D {:?}, Spot {}, Adjusted {}", d, 14_522_926_200u128, d.convert_to_strike(14_522_926_200u128).unwrap());
+            println!("D {:?}, Spot {}, Adjusted {}", d, 40559984u128, d.convert_to_strike(40559984u128).unwrap());
+        }
+    }
+}
 
 #[cfg(test)]
 mod premium_display {
-    use crate::math::{lp_shares::calc_withdraw_amount_from_lp_shares, premium::*};
+    use crate::math::{lp_shares::calc_withdraw_amount_from_lp_shares, premium::* };
 
     use super::*;
 
@@ -266,8 +279,61 @@ mod premium_display {
 
             print!("LP {} -> {} (capped - {})", c, x, y);
         }
-
-
     }
 }
 
+// #[cfg(test)]
+// mod ln {
+//     use crate::math::ln::*;
+
+//     #[test]
+//     fn run() {
+//         let nums = vec![ 120.0/110.0, 124.12/98.87, 127.01/85.12, 127.52 / 117.1, ];
+//         let nums2 = vec![ 127.1 / 139.12, 127.12 / 152.1, 127.4 / 160.001];
+//         // let nums = vec![0.010, 0.50, 1.0, 2.0, 7.0, 13.0, 40.0, 98.0];
+
+//         for n in nums {
+//             let nf64 = n as f64;
+//             let lnint = ln_int((n * 1_000_000.0) as u64).unwrap();
+//             // let lnint_poly = ln_int_poly((n * 1_000_000.0) as u64).unwrap();
+//             println!("Number: {}, ln built in {}, ln_int (int implemntation) {} ({})", nf64, nf64.ln(), lnint, fixed_to_float(lnint));
+//             // println!("Number: {}, ln {}, lnint_poly {} ({})", nf64, nf64.ln(), lnint_poly, fixed_to_float(lnint_poly));
+//         }
+
+//          for n in nums2 {
+//             let nf64 = n as f64;
+//             let lnint = ln_int_poly((n * 1_000_000.0) as u64).unwrap();
+//             // let lnint_poly = ln_int_poly((n * 1_000_000.0) as u64).unwrap();
+//             println!("Number: {}, ln built in {}, ln_int_poly (int implemntation) {} ({})", nf64, nf64.ln(), lnint, fixed_to_float(lnint));
+//             // println!("Number: {}, ln {}, lnint_poly {} ({})", nf64, nf64.ln(), lnint_poly, fixed_to_float(lnint_poly));
+//         }
+//     }
+// }
+
+
+// #[cfg(test)]
+// mod exp {
+//     use crate::math::exp::*;
+
+//     #[test]
+//     fn run() {
+//         let nums = vec![ -11.00, -0.52, -0.0001, 0.002, 0.999, 9.2, 80000.0 ];
+//         // let nums = vec![0.010, 0.50, 1.0, 2.0, 7.0, 13.0, 40.0, 98.0];
+
+//         for n in nums {
+//             let nf64 = n as f64;
+//             let lnint = 0; //exp_fixed_point((n * 1_000_000_000.0) as i64).unwrap();
+//             // let lnint_poly = ln_int_poly((n * 1_000_000.0) as u64).unwrap();
+//             println!("Number: {}, exp built in {}, exp_fixed_point (int implemntation) {}", nf64, nf64.ln(), lnint);
+//             // println!("Number: {}, ln {}, lnint_poly {} ({})", nf64, nf64.ln(), lnint_poly, fixed_to_float(lnint_poly));
+//         }
+
+//          for n in nums2 {
+//             let nf64 = n as f64;
+//             let lnint = ln_int_poly((n * 1_000_000.0) as u64).unwrap();
+//             // let lnint_poly = ln_int_poly((n * 1_000_000.0) as u64).unwrap();
+//             println!("Number: {}, ln built in {}, ln_int_poly (int implemntation) {} ({})", nf64, nf64.ln(), lnint, fixed_to_float(lnint));
+//             // println!("Number: {}, ln {}, lnint_poly {} ({})", nf64, nf64.ln(), lnint_poly, fixed_to_float(lnint_poly));
+//         }
+//     }
+// }

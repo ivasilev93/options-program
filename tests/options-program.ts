@@ -300,7 +300,7 @@ describe("options-program test suite", async () => {
       option: { call: {} },
       quantity: new anchor.BN(1000),
       expirySetting: { hour4: {}},
-      strikePriceUsd: new anchor.BN(14000000000)
+      spotDeviation: { n10: {} } // new anchor.BN(14000000000)
     }).accountsStrict({
       account: john_taker_accountPda,
       assetMint: NATIVE_MINT,
@@ -441,7 +441,7 @@ describe("options-program test suite", async () => {
       option: { call: {} },
       quantity: new anchor.BN(1000),
       expirySetting: { day1: {} },
-      strikePriceUsd: new anchor.BN(14000000000)
+      spotDeviation: { n10: {} } // new anchor.BN(14000000000)
     }).accountsStrict({
       account: john_taker_accountPda,
       assetMint: NATIVE_MINT,

@@ -6,7 +6,7 @@
 **Important notes**
 - Not Audited: This program has not undergone any professional security audit and is intended solely for demonstration purposes.
 - Simplified Economic Model: The economic model is significantly simplified and does not reflect real-world financial complexities.
-- Black-Scholes Model: The premium calculation uses a simplified Black-Scholes model with compromises, such as assuming a 0% risk-free rate, using approximations for computational efficiency and manually fed volatility.
+- The premium is calculated as option intristic value + time adj value (extra value from volatility and time to expiry)
 ---
  
 ## Architecture Overview
